@@ -1,5 +1,6 @@
 {
   "name": "@eslym/sveltekit-adapter-bun",
+  "version": "1.0.0",
   "type": "module",
   "files": [
     "dist/**/*"
