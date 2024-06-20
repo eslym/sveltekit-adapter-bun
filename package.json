@@ -1,7 +1,16 @@
 {
   "name": "@eslym/sveltekit-adapter-bun",
-  "version": "1.0.0",
+  "description": "Another sveltekit adapter for bun.",
+  "keywords": [
+    "sveltekit",
+    "adapter",
+    "bun"
+  ],
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eslym/sveltekit-adapter-bun.git"
+  },
   "files": [
     "dist/**/*"
   ],

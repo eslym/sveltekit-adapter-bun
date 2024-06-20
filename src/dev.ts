@@ -54,9 +54,18 @@ export async function patchSveltekit() {
     await Bun.$`${bun} patch --commit 'node_modules/@sveltejs/kit'`;
 }
 
-export async function startDevServer({ port = 5173, host = 'localhost', config }: { port?: number; host?: string; config?: string } = {}) {
+export async function startDevServer({
+    port = 5173,
+    host = 'localhost',
+    config
+}: { port?: number; host?: string; config?: string } = {}) {
     if (!config) {
-        for (const cfg of ['vite.config.ts', 'vite.config.js', 'vite.config.cjs', 'vite.config.mjs']) {
+        for (const cfg of [
+            'vite.config.ts',
+            'vite.config.js',
+            'vite.config.cjs',
+            'vite.config.mjs'
+        ]) {
             if (Bun.file(cfg).size) {
                 config = cfg;
                 break;

@@ -43,7 +43,7 @@ export interface AdapterPlatform {
      * @param ws The websocket handler
      */
     markForUpgrade(response: Response, ws: WebSocketHandler<any>): Response;
-};
+}
 
 export type PreCompressOptions = {
     /**

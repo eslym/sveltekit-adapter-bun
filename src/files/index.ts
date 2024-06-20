@@ -13,26 +13,36 @@ const hooks = await get_hooks();
 
 export const cli = cac(CLI_NAME);
 
+const env = Bun.env;
+
 cli.command('', 'Serve the app')
     .alias('serve')
-    .option('--port, -p <port>', 'Port to listen on', { default: 3000 })
-    .option('--host, -h <host>', 'Host to listen on', { default: 'localhost' })
-    .option('--unix-socket, -u <unix-socket>', 'Serve on a unix socket instead.')
-    .option('--protocol-header, -P <protocol-header>', 'Protocol header to use')
-    .option('--override-origin, -O <override-origin>', 'Override the origin')
-    .option('--host-header, -H <host-header>', 'Host header to use')
-    .option('--ip-header, -i <ip-header>', 'IP header to use')
-    .option('--xff-depth, -x <xff-depth>', 'X-Forwarded-For depth', { default: 1 })
+    .option('--port, -p <port>', 'Port to listen on', { default: env.HTTP_PORT || 3000 })
+    .option('--host, -h <host>', 'Host to listen on', { default: env.HTTP_HOST || 'localhost' })
+    .option('--unix-socket, -u <unix-socket>', 'Serve on a unix socket instead.', {
+        default: env.HTTP_SOCKET
+    })
+    .option('--protocol-header, -P <protocol-header>', 'Protocol header to use', {
+        default: env.HTTP_PROTOCOL
+    })
+    .option('--override-origin, -O <override-origin>', 'Override the origin', {
+        default: env.HTTP_OVERRIDE_ORIGIN
+    })
+    .option('--host-header, -H <host-header>', 'Host header to use', {
+        default: env.HTTP_HOST_HEADER
+    })
+    .option('--ip-header, -i <ip-header>', 'IP header to use', { default: env.HTTP_IP_HEADER })
+    .option('--xff-depth, -x <xff-depth>', 'X-Forwarded-For depth', { default: env.HTTP_XFF_DEPTH })
     .action(async (options: ServeOptions) => {
         await hooks.beforeServe?.(options);
         const serverOptions = options.unixSocket
             ? {
-                unix: options.unixSocket
-            }
+                  unix: options.unixSocket
+              }
             : {
-                hostname: options.host,
-                port: options.port
-            };
+                  hostname: options.host,
+                  port: options.port
+              };
         const server = Bun.serve({
             ...serverOptions,
             fetch: create_fetch(options),
