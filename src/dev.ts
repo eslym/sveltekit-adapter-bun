@@ -19,6 +19,9 @@ const setResponsePatch = `
 `;
 
 export async function patchSveltekit() {
+    if (!('Bun' in globalThis)) {
+        throw new Error('Please run with bun');
+    }
     if (Bun.semver.satisfies(Bun.version, '<1.1.15')) {
         throw new Error('bun patch requires Bun >= 1.1.15');
     }
@@ -59,6 +62,9 @@ export async function startDevServer({
     host = 'localhost',
     config
 }: { port?: number; host?: string; config?: string } = {}) {
+    if (!('Bun' in globalThis)) {
+        throw new Error('Please run with bun');
+    }
     if (!config) {
         for (const cfg of [
             'vite.config.ts',
