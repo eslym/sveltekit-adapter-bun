@@ -1,0 +1,9 @@
+{
+  "extends": ["./tsconfig.json"],
+  "buildOptions": {
+    "outDir": "./dist",
+    "declaration": true,
+    "emitDeclarationOnly": true
+  },
+  "files": ["src/index.ts"]
+}
