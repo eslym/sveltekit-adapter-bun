@@ -24,6 +24,7 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import { join } from 'node:path/posix';
+import { uneval } from 'devalue';
 import { symServer, symUpgrades } from './symbols';
 export * from './dev';
 
@@ -218,8 +219,8 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
 
             if (opts.exportPrerender) {
                 writeFileSync(
-                    `${out}/prerendered.json`,
-                    JSON.stringify(builder.prerendered, null, 2) + '\n'
+                    `${out}/prerendered.js`,
+                    `export default ${uneval(builder.prerendered)};`
                 );
             }
 

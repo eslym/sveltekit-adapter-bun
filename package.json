@@ -24,6 +24,7 @@
     "@sveltejs/kit": "^2.5.16",
     "@types/bun": "latest",
     "cac": "^6.7.14",
+    "devalue": "^5.0.0",
     "prettier": "^3.3.2",
     "typescript": "^5.0.0"
   },
