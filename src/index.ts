@@ -188,10 +188,11 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                 }
             });
 
+            const transpiler = new Bun.Transpiler({ loader: 'js' });
+
             if (opts.transpileBun) {
                 const glob = new Bun.Glob('./server/**/*.js');
                 const files = [...glob.scanSync({ cwd: out, absolute: true })];
-                const transpiler = new Bun.Transpiler({ loader: 'js' });
                 for (const file of files) {
                     const src = await Bun.file(file).text();
                     if (src.startsWith('// @bun')) continue;
@@ -218,10 +219,13 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
             writeFileSync(`${out}/package.json`, JSON.stringify(pkg, null, 2) + '\n');
 
             if (opts.exportPrerender) {
-                writeFileSync(
-                    `${out}/prerendered.js`,
-                    `export default ${uneval(builder.prerendered)};`
-                );
+                const js =
+                    `export const paths = ${JSON.stringify(builder.prerendered.paths)};\n` +
+                    `export const prerendered = ${JSON.stringify(builder.prerendered.pages)};\n` +
+                    `export const assets = ${JSON.stringify(builder.prerendered.assets)};\n` +
+                    `export const redirects = ${JSON.stringify(builder.prerendered.redirects)};\n` +
+                    `export default { paths, prerendered, assets, redirects };\n`;
+                writeFileSync(`${out}/prerendered.js`, '\\\\@bun\n' + transpiler.transformSync(js));
             }
 
             builder.log.success(`Build done.`);
