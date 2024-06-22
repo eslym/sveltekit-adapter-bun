@@ -225,7 +225,7 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                     `export const assets = ${JSON.stringify(builder.prerendered.assets)};\n` +
                     `export const redirects = ${JSON.stringify(builder.prerendered.redirects)};\n` +
                     `export default { paths, prerendered, assets, redirects };\n`;
-                writeFileSync(`${out}/prerendered.js`, '\\\\@bun\n' + transpiler.transformSync(js));
+                writeFileSync(`${out}/prerendered.js`, '//@bun\n' + transpiler.transformSync(js));
             }
 
             builder.log.success(`Build done.`);
