@@ -220,10 +220,10 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
 
             if (opts.exportPrerender) {
                 const js =
-                    `export const paths = ${JSON.stringify(builder.prerendered.paths)};\n` +
-                    `export const prerendered = ${JSON.stringify(builder.prerendered.pages)};\n` +
-                    `export const assets = ${JSON.stringify(builder.prerendered.assets)};\n` +
-                    `export const redirects = ${JSON.stringify(builder.prerendered.redirects)};\n` +
+                    `export const paths = ${uneval(builder.prerendered.paths)};\n` +
+                    `export const prerendered = ${uneval(builder.prerendered.pages)};\n` +
+                    `export const assets = ${uneval(builder.prerendered.assets)};\n` +
+                    `export const redirects = ${uneval(builder.prerendered.redirects)};\n` +
                     `export default { paths, prerendered, assets, redirects };\n`;
                 writeFileSync(`${out}/prerendered.js`, '//@bun\n' + transpiler.transformSync(js));
             }
