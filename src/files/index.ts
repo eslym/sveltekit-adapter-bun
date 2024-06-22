@@ -18,12 +18,12 @@ const env = Bun.env;
 cli.command('', 'Serve the app')
     .alias('serve')
     .option('--port, -p <port>', 'Port to listen on', { default: env.HTTP_PORT || 3000 })
-    .option('--host, -h <host>', 'Host to listen on', { default: env.HTTP_HOST || 'localhost' })
+    .option('--host, -h <host>', 'Host to listen on', { default: env.HTTP_HOST || '0.0.0.0' })
     .option('--unix-socket, -u <unix-socket>', 'Serve on a unix socket instead.', {
         default: env.HTTP_SOCKET
     })
     .option('--protocol-header, -P <protocol-header>', 'Protocol header to use', {
-        default: env.HTTP_PROTOCOL
+        default: env.HTTP_PROTOCOL_HEADER
     })
     .option('--override-origin, -O <override-origin>', 'Override the origin', {
         default: env.HTTP_OVERRIDE_ORIGIN
