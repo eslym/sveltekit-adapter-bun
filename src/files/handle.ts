@@ -30,8 +30,9 @@ function clone_req(url: URL, request: Request) {
 }
 
 async function first_resolve(request: Request, resolvers: Resolvers) {
+    const args = { request };
     for (let i = 0; i < resolvers.length; i++) {
-        const _r = resolvers[i]({ request });
+        const _r = resolvers[i](args);
         const response = _r instanceof Promise ? await _r : _r;
         if (response) return response;
     }
