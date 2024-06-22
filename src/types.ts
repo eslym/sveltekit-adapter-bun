@@ -92,6 +92,12 @@ export type AdapterOptions = {
      * The name of the CLI
      */
     cliName?: string;
+
+    /**
+     * Export prerendered entries as json
+     * @default false
+     */
+    exportPrerender?: boolean;
 };
 
 export type ResolvedStatic = [

@@ -34,6 +34,7 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
         out: './build',
         transpileBun: false,
         precompress: false,
+        exportPrerender: false,
         websocketOptions: {},
         staticIgnores: ['**/.*'],
         ...userOpts
@@ -135,10 +136,12 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
             writeFileSync(
                 `${tmp}/manifest.js`,
                 `export const manifest = ${builder.generateManifest({ relativePath: './' })};\n\n` +
-                `export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n`
+                    `export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n`
             );
 
             const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+
+            builder.log.minor('Bundling...');
 
             // we bundle the Vite output so that deployments only need
             // their production dependencies. Anything in devDependencies
@@ -161,7 +164,10 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                     commonjs({ strictRequires: true }),
                     // @ts-ignore https://github.com/rollup/plugins/issues/1329
                     json()
-                ]
+                ],
+                onLog(level, log) {
+                    builder.log[level === 'debug' ? 'minor' : level](log.message);
+                }
             });
 
             await bundle.write({
@@ -209,6 +215,13 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
             delete pkg.devDependencies;
 
             writeFileSync(`${out}/package.json`, JSON.stringify(pkg, null, 2) + '\n');
+
+            if (opts.exportPrerender) {
+                writeFileSync(
+                    `${out}/prerendered.json`,
+                    JSON.stringify(builder.prerendered, null, 2) + '\n'
+                );
+            }
 
             builder.log.success(`Build done.`);
         },
@@ -292,12 +305,12 @@ async function compress_file(file: string, format: 'gz' | 'br' = 'gz') {
     const compress =
         format == 'br'
             ? zlib.createBrotliCompress({
-                params: {
-                    [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
-                    [zlib.constants.BROTLI_PARAM_QUALITY]: zlib.constants.BROTLI_MAX_QUALITY,
-                    [zlib.constants.BROTLI_PARAM_SIZE_HINT]: statSync(file).size
-                }
-            })
+                  params: {
+                      [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
+                      [zlib.constants.BROTLI_PARAM_QUALITY]: zlib.constants.BROTLI_MAX_QUALITY,
+                      [zlib.constants.BROTLI_PARAM_SIZE_HINT]: statSync(file).size
+                  }
+              })
             : zlib.createGzip({ level: zlib.constants.Z_BEST_COMPRESSION });
 
     const source = createReadStream(file);
