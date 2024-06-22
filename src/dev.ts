@@ -102,6 +102,12 @@ export async function startDevServer({
         appType: 'custom'
     });
 
+    const hooks = await vite
+        .ssrLoadModule('./src/hooks.server.ts')
+        .catch(() => ({}) as Record<string, any>);
+
+    await hooks.beforeServe?.();
+
     const server = Bun.serve({
         hostname: host,
         port,
@@ -178,6 +184,8 @@ export async function startDevServer({
     });
 
     (globalThis as any)[symServer] = server;
+
+    await hooks.afterServe?.(server);
 
     console.log(`Serving on ${server.url}`);
 }
