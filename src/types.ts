@@ -1,4 +1,4 @@
-import type { WebSocketHandler as BunWSHandler } from 'bun';
+import type { WebSocketHandler as BunWSHandler, ServerWebSocket } from 'bun';
 import type { Server } from 'bun';
 
 export type ServeOptions = {
@@ -17,10 +17,67 @@ export type WebSocketOptions = Omit<
     'message' | 'open' | 'close' | 'ping' | 'pong' | 'drain'
 >;
 
-export type WebSocketHandler<T extends WebSocketHandler<any>> = Pick<
-    BunWSHandler<T>,
-    'message' | 'open' | 'drain' | 'ping' | 'pong' | 'close'
->;
+export interface WebSocketHandler {
+    /**
+     * Called when the server receives an incoming message.
+     *
+     * If the message is not a `string`, its type is based on the value of `binaryType`.
+     * - if `nodebuffer`, then the message is a `Buffer`.
+     * - if `arraybuffer`, then the message is an `ArrayBuffer`.
+     * - if `uint8array`, then the message is a `Uint8Array`.
+     *
+     * @param ws The websocket that sent the message
+     * @param message The message received
+     */
+    message(
+        ws: ServerWebSocket<this>,
+        message: string | Buffer,
+    ): void | Promise<void>;
+
+    /**
+     * Called when a connection is opened.
+     *
+     * @param ws The websocket that was opened
+     */
+    open?(ws: ServerWebSocket<this>): void | Promise<void>;
+
+    /**
+     * Called when a connection was previously under backpressure,
+     * meaning it had too many queued messages, but is now ready to receive more data.
+     *
+     * @param ws The websocket that is ready for more data
+     */
+    drain?(ws: ServerWebSocket<this>): void | Promise<void>;
+
+    /**
+     * Called when a connection is closed.
+     *
+     * @param ws The websocket that was closed
+     * @param code The close code
+     * @param message The close message
+     */
+    close?(
+        ws: ServerWebSocket<this>,
+        code: number,
+        reason: string,
+    ): void | Promise<void>;
+
+    /**
+     * Called when a ping is sent.
+     *
+     * @param ws The websocket that received the ping
+     * @param data The data sent with the ping
+     */
+    ping?(ws: ServerWebSocket<this>, data: Buffer): void | Promise<void>;
+
+    /**
+     * Called when a pong is received.
+     *
+     * @param ws The websocket that received the ping
+     * @param data The data sent with the ping
+     */
+    pong?(ws: ServerWebSocket<this>, data: Buffer): void | Promise<void>;
+}
 
 export interface AdapterPlatform {
     /**
@@ -42,7 +99,7 @@ export interface AdapterPlatform {
      * @param response The response to mark
      * @param ws The websocket handler
      */
-    markForUpgrade(response: Response, ws: WebSocketHandler<any>): Response;
+    markForUpgrade(response: Response, ws: WebSocketHandler): Response;
 }
 
 export type PreCompressOptions = {
