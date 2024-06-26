@@ -83,7 +83,7 @@ export async function startDevServer({
     }
     const { createServer } = await import('vite');
 
-    const upgrades = new WeakMap<Response, WebSocketHandler<any>>();
+    const upgrades = new WeakMap<Response, WebSocketHandler>();
 
     (globalThis as any)[symUpgrades] = upgrades;
 
@@ -180,7 +180,7 @@ export async function startDevServer({
             pong(ws, buffer) {
                 return ws.data.pong?.(ws, buffer);
             }
-        } as BunWSHandler<WebSocketHandler<any>>
+        } as BunWSHandler<WebSocketHandler>
     });
 
     (globalThis as any)[symServer] = server;

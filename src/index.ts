@@ -249,7 +249,7 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                             }
                             const upgrades = (globalThis as any)[symUpgrades] as WeakMap<
                                 Response,
-                                WebSocketHandler<any>
+                                WebSocketHandler
                             >;
                             upgrades.set(res, ws);
                             return res;
