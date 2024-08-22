@@ -1,6 +1,6 @@
 import { dirname, join } from 'path';
 import { EventEmitter } from 'events';
-import { IncomingMessage, ServerResponse } from 'http';
+import { IncomingMessage, ServerResponse, type Server as HTTPServer } from 'http';
 import type { Server, WebSocketHandler as BunWSHandler } from 'bun';
 import type { WebSocketHandler } from './types';
 import { symServer, symUpgrades } from './symbols';
@@ -20,19 +20,14 @@ const setResponsePatch = `
 
 const bunternal = Symbol.for('::bunternal::');
 
-const setupBunternal: (
-    socket: any,
-    bunServer: any,
-    httpServer: any,
-    httpReq: any,
-    bunReq: any
-) => void = Bun.semver.satisfies(Bun.version, '<1.1.25')
-    ? (socket, bunServer, _, httpReq, bunReq) => {
-          socket[bunternal] = [bunServer, httpReq, bunReq];
-      }
-    : (socket, _, httpServer, httpReq, bunReq) => {
-          socket[bunternal] = [httpServer, httpReq, bunReq];
-      };
+function setupBunternal(socket: any, bunServer: Server, httpServer: EventEmitter, httpRes: ServerResponse, bunReq: Request) {
+    if (Bun.semver.satisfies(Bun.version, '<1.1.25')) {
+        socket[bunternal] = [bunServer, httpRes, bunReq];
+        return;
+    }
+    // changes in bun 1.1.25
+    socket[bunternal] = [httpServer, httpRes, bunReq];
+}
 
 export async function patchSveltekit() {
     if (!('Bun' in globalThis)) {
@@ -142,10 +137,10 @@ export async function startDevServer({
             }
 
             const req = new IncomingMessage(request as any);
-            const res = new (ServerResponse as any)(req, respond);
+            const res = new (ServerResponse as any)(req, respond) as ServerResponse;
 
             const socket = req.socket as any;
-            setupBunternal(socket, server, fakeServer, req, request);
+            setupBunternal(socket, server, fakeServer, res, request);
 
             req.once('error', raise);
             res.once('error', raise);
