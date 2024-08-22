@@ -87,7 +87,17 @@ export async function startDevServer({
 
     (globalThis as any)[symUpgrades] = upgrades;
 
-    const bunternal = Symbol.for('::bunternal::');
+    let sym = undefined as any as symbol;
+    let bunternal = ((socket: any) => {
+        for (const key in socket) {
+            if (typeof key === 'symbol' && `${key}`.includes('::bunternal::')) {
+                sym = key;
+                bunternal = () => sym;
+                return key;
+            }
+        }
+        throw new Error('bunternal symbol not found');
+    }) as (socket: any) => symbol;
 
     const fakeServer = new EventEmitter();
 
@@ -131,7 +141,7 @@ export async function startDevServer({
             const res = new (ServerResponse as any)(req, respond);
 
             const socket = req.socket as any;
-            socket[bunternal] = [server, res, request];
+            socket[bunternal(socket)] = [server, res, request];
 
             req.once('error', raise);
             res.once('error', raise);
