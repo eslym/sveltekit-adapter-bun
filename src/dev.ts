@@ -18,6 +18,22 @@ const setResponsePatch = `
 	}
 `;
 
+const bunternal = Symbol.for('::bunternal::');
+
+const setupBunternal: (
+    socket: any,
+    bunServer: any,
+    httpServer: any,
+    httpReq: any,
+    bunReq: any
+) => void = Bun.semver.satisfies(Bun.version, '<1.1.25')
+    ? (socket, bunServer, _, httpReq, bunReq) => {
+          socket[bunternal] = [bunServer, httpReq, bunReq];
+      }
+    : (socket, _, httpServer, httpReq, bunReq) => {
+          socket[bunternal] = [httpServer, httpReq, bunReq];
+      };
+
 export async function patchSveltekit() {
     if (!('Bun' in globalThis)) {
         throw new Error('Please run with bun');
@@ -87,18 +103,6 @@ export async function startDevServer({
 
     (globalThis as any)[symUpgrades] = upgrades;
 
-    let sym = undefined as any as symbol;
-    let bunternal = ((socket: any) => {
-        for (const key of Object.getOwnPropertySymbols(socket)) {
-            if (typeof key === 'symbol' && key.description === '::bunternal::') {
-                sym = key;
-                bunternal = () => sym;
-                return key;
-            }
-        }
-        throw new Error('bunternal symbol not found');
-    }) as (socket: any) => symbol;
-
     const fakeServer = new EventEmitter();
 
     const vite = await createServer({
@@ -141,7 +145,7 @@ export async function startDevServer({
             const res = new (ServerResponse as any)(req, respond);
 
             const socket = req.socket as any;
-            socket[bunternal(socket)] = [server, res, request];
+            setupBunternal(socket, server, fakeServer, req, res);
 
             req.once('error', raise);
             res.once('error', raise);
@@ -192,6 +196,8 @@ export async function startDevServer({
             }
         } as BunWSHandler<WebSocketHandler>
     });
+
+    (fakeServer as any)[bunternal] = server;
 
     (globalThis as any)[symServer] = server;
 
