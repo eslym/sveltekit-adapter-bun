@@ -89,8 +89,8 @@ export async function startDevServer({
 
     let sym = undefined as any as symbol;
     let bunternal = ((socket: any) => {
-        for (const key in socket) {
-            if (typeof key === 'symbol' && `${key}`.includes('::bunternal::')) {
+        for (const key of Object.getOwnPropertySymbols(socket)) {
+            if (typeof key === 'symbol' && key.description === '::bunternal::') {
                 sym = key;
                 bunternal = () => sym;
                 return key;
