@@ -145,7 +145,7 @@ export async function startDevServer({
             const res = new (ServerResponse as any)(req, respond);
 
             const socket = req.socket as any;
-            setupBunternal(socket, server, fakeServer, req, res);
+            setupBunternal(socket, server, fakeServer, req, request);
 
             req.once('error', raise);
             res.once('error', raise);
