@@ -9,6 +9,7 @@ bun add -d @eslym/sveltekit-adapter-bun
 ```
 
 ## Setup dev server
+
 > [!NOTE]  
 > You do not need to do this if you are not using websocket in dev mode.
 
@@ -20,9 +21,16 @@ bun add -d @eslym/sveltekit-adapter-bun
     await patchSvelteKit();
     await startDevServer();
     ```
+
 3. run `bun dev.ts`
 
-The `patchSvelteKit` function will patch the sveltekit to let it get the original `Request` object from bun and pass it to the dev server, making `Bun.Server#upgrade` possible. The `startDevServer` function will start the dev server with websocket support.
+The `patchSvelteKit` function will patch the sveltekit using `bun patch` to let it get the original `Request` object from bun and pass it to the dev server, making `Bun.Server#upgrade` possible. The `startDevServer` function will start the dev server with websocket support.
+
+The `patchSvelteKit` will not impact anything in production build, since the production build will not involve `@sveltejs/kit/node` unless you are using it in your code.
+
+> [!IMPORTANT]
+> This dev server uses bun's internal stuff, so it might break in the future bun version, but the
+> production build will not be affected.
 
 ## Use the websocket
 
@@ -61,5 +69,4 @@ export async function GET({ platform }) {
         }
     );
 }
-
 ```

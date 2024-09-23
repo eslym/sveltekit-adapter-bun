@@ -79,3 +79,5 @@ await hooks.setupCLI?.(cli);
 if (Bun.main === Bun.fileURLToPath(import.meta.url)) {
     cli.parse();
 }
+
+export { create_fetch as createBunFetch };

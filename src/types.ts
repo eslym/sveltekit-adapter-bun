@@ -1,16 +1,19 @@
 import type { WebSocketHandler as BunWSHandler, ServerWebSocket } from 'bun';
 import type { Server } from 'bun';
 
-export type ServeOptions = {
-    port: number;
-    host: string;
-    unixSocket?: string;
+export type CreateFetchOptions = {
     overrideOrigin?: string;
     hostHeader?: string;
     protocolHeader?: string;
     ipHeader?: string;
     xffDepth?: number;
 };
+
+export type ServeOptions = {
+    port: number;
+    host: string;
+    unixSocket?: string;
+} & CreateFetchOptions;
 
 export type WebSocketOptions = Omit<
     BunWSHandler,

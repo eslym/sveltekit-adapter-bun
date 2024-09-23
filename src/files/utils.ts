@@ -1,5 +1,6 @@
 const urls = new WeakMap<Request, URL>();
-let basePath: string;
+
+const basePath = Symbol.for('app.basepath');
 
 export function get_url(request: Request) {
     if (!urls.has(request)) {
@@ -14,9 +15,9 @@ export function set_url(request: Request, url: URL) {
 }
 
 export function get_basepath(): string {
-    return basePath;
+    return (globalThis as any)[basePath] || '';
 }
 
 export function set_basepath(path: string) {
-    basePath = path;
+    (globalThis as any)[basePath] = path;
 }

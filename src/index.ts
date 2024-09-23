@@ -1,4 +1,4 @@
-export type { WebSocketHandler } from './types';
+export type { WebSocketHandler, CreateFetchOptions } from './types';
 import type {
     AdapterOptions,
     AdapterPlatform,
