@@ -25,6 +25,26 @@ bun add -d @eslym/sveltekit-adapter-bun
 The `patchSvelteKit` function will patch the sveltekit to let it get the original `Request` object from bun and pass it to the dev server, making `Bun.Server#upgrade` possible. The `startDevServer` function will start the dev server with websocket support.
 
 ## Use the websocket
+
+```typescript
+// ./src/app.d.ts
+// for the type checking
+
+import type { AdapterPlatform } from '@eslym/sveltekit-adapter-bun';
+
+// See https://kit.svelte.dev/docs/types#app
+// for information about these interfaces
+declare global {
+    namespace App {
+        // interface Error {}
+        // interface Locals {}
+        // interface PageData {}
+        // interface PageState {}
+        interface Platform extends AdapterPlatform {}
+    }
+}
+```
+
 ```typescript
 // ./src/routes/echo/+server.ts
 
