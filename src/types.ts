@@ -29,10 +29,7 @@ export interface WebSocketHandler {
      * @param ws The websocket that sent the message
      * @param message The message received
      */
-    message(
-        ws: ServerWebSocket<this>,
-        message: string | Buffer,
-    ): void | Promise<void>;
+    message(ws: ServerWebSocket<this>, message: string | Buffer): void | Promise<void>;
 
     /**
      * Called when a connection is opened.
@@ -56,11 +53,7 @@ export interface WebSocketHandler {
      * @param code The close code
      * @param message The close message
      */
-    close?(
-        ws: ServerWebSocket<this>,
-        code: number,
-        reason: string,
-    ): void | Promise<void>;
+    close?(ws: ServerWebSocket<this>, code: number, reason: string): void | Promise<void>;
 
     /**
      * Called when a ping is sent.

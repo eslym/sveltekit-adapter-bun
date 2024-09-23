@@ -1,9 +1,10 @@
-import type { MaybePromise } from '@sveltejs/kit';
 import type { AdapterPlatform, ServeOptions, WebSocketHandler } from '../types';
 import { get_basepath, get_url, set_url } from './utils';
 import { serve_static } from './static';
 import type { Server } from 'bun';
 import { server } from './server';
+
+type MaybePromise<T> = T | Promise<T>;
 
 type FetchOptions = Pick<
     ServeOptions,
@@ -85,8 +86,8 @@ export function create_fetch({
         getIp = (req, fallback) => req.headers.get(ipHeader) ?? fallback;
     }
     const resolvers: Resolvers = [];
-    const upgrades = new WeakMap<Response, WebSocketHandler<any>>();
-    function markUpgrade(response: Response, ws: WebSocketHandler<any>) {
+    const upgrades = new WeakMap<Response, WebSocketHandler>();
+    function markUpgrade(response: Response, ws: WebSocketHandler) {
         upgrades.set(response, ws);
         return response;
     }
@@ -96,10 +97,10 @@ export function create_fetch({
         resolvers.push((args) => override_origin_with_header(args, hostHeader, protocolHeader));
     }
     resolvers.push(({ request }) => serve_static(request, basePath));
-    return async (request: Request, srv: Server) => {
+    return (request: Request, srv: Server) => {
         const request_ip = srv.requestIP(request)?.address;
         const try_get_ip = getIp ? () => getIp(request, request_ip) : () => request_ip;
-        return await first_resolve(request, [
+        return first_resolve(request, [
             ...resolvers,
             async (args) => {
                 const res = await server.respond(args.request, {

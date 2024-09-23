@@ -66,7 +66,7 @@ cli.command('', 'Serve the app')
                 drain(ws) {
                     return ws.data.drain?.(ws);
                 }
-            } as BunWSHandler<WebSocketHandler<any>>
+            } as BunWSHandler<WebSocketHandler>
         });
         await hooks.afterServe?.(server, options);
         console.log(`Serving on ${server.url}`);

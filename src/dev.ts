@@ -1,6 +1,6 @@
 import { dirname, join } from 'path';
 import { EventEmitter } from 'events';
-import { IncomingMessage, ServerResponse, type Server as HTTPServer } from 'http';
+import { IncomingMessage, ServerResponse } from 'http';
 import type { Server, WebSocketHandler as BunWSHandler } from 'bun';
 import type { WebSocketHandler } from './types';
 import { symServer, symUpgrades } from './symbols';
@@ -20,7 +20,13 @@ const setResponsePatch = `
 
 const bunternal = Symbol.for('::bunternal::');
 
-function setupBunternal(socket: any, bunServer: Server, httpServer: EventEmitter, httpRes: ServerResponse, bunReq: Request) {
+function setupBunternal(
+    socket: any,
+    bunServer: Server,
+    httpServer: EventEmitter,
+    httpRes: ServerResponse,
+    bunReq: Request
+) {
     if (Bun.semver.satisfies(Bun.version, '<1.1.25')) {
         socket[bunternal] = [bunServer, httpRes, bunReq];
         return;
