@@ -200,6 +200,9 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                 }
             }
 
+            pkg.main = 'index.js';
+            pkg.scripts = { start: 'bun ./index.js' };
+        
             if ('patchedDependencies' in pkg) {
                 const deps = Object.keys(pkg.devDependencies || {});
                 for (const [patchedDep, patch] of Object.entries(pkg.patchedDependencies)) {
