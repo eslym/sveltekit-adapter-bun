@@ -11,6 +11,12 @@
     "type": "git",
     "url": "https://github.com/eslym/sveltekit-adapter-bun.git"
   },
+  "scripts": {
+    "build": "bun ./build.ts"
+  },
+  "bin": {
+    "sveltekit-bun": "dist/bin.js"
+  },
   "files": [
     "dist/**/*"
   ],
@@ -21,17 +27,17 @@
     }
   },
   "devDependencies": {
-    "@sveltejs/kit": "^2.5.26",
+    "@sveltejs/kit": "^2.6.1",
     "@types/bun": "latest",
     "cac": "^6.7.14",
-    "devalue": "^5.0.0",
+    "devalue": "^5.1.1",
     "prettier": "^3.3.3",
-    "typescript": "^5.5.4"
+    "typescript": "^5.6.2"
   },
   "dependencies": {
-    "@rollup/plugin-commonjs": "^26.0.1",
+    "@rollup/plugin-commonjs": "^28.0.0",
     "@rollup/plugin-json": "^6.1.0",
-    "@rollup/plugin-node-resolve": "^15.2.3",
-    "rollup": "^4.21.2"
+    "@rollup/plugin-node-resolve": "^15.3.0",
+    "rollup": "^4.22.5"
   }
 }

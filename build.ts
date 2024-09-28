@@ -23,6 +23,25 @@ for (const output of buildIndex.outputs) {
     console.log(output.path);
 }
 
+const buildBin = await Bun.build({
+    entrypoints: [join(import.meta.dir, 'src/bin.ts')],
+    outdir: join(import.meta.dir, 'dist'),
+    external: [...Object.keys(dependencies), 'vite'],
+    target: 'bun'
+});
+
+for (const log of buildBin.logs) {
+    console.log(log);
+}
+
+if (!buildBin.success) {
+    process.exit(1);
+}
+
+for (const output of buildBin.outputs) {
+    console.log(output.path);
+}
+
 const buildFiles = await Bun.build({
     entrypoints: [join(import.meta.dir, 'src/files/index.ts')],
     outdir: join(import.meta.dir, 'dist/files'),
