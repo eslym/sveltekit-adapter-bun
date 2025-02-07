@@ -8,6 +8,10 @@ Another sveltekit adapter for bun, an alternative to [svelte-adapter-bun](https:
 bun add -d @eslym/sveltekit-adapter-bun
 ```
 
+> [!IMPORTANT]
+> The custom hooks in this adapter is not longer working since @sveltejs/kit@2.10.0,
+> if still need the `beforeServe` hook, use the [official `init` hook](https://svelte.dev/docs/kit/hooks#Shared-hooks-init) instead, but it is too hard to make the `setupCLI` hook to work now.
+
 ## Setup dev server
 
 > [!NOTE]  
