@@ -1,4 +1,8 @@
-import type { WebSocketHandler as BunWSHandler, ServerWebSocket } from 'bun';
+import type {
+    WebSocketHandler as BunWSHandler,
+    ServeOptions as BunServeOptions,
+    ServerWebSocket
+} from 'bun';
 import type { Server } from 'bun';
 
 export type CreateFetchOptions = {
@@ -15,10 +19,17 @@ export type ServeOptions = {
     unixSocket?: string;
 } & CreateFetchOptions;
 
-export type WebSocketOptions = Omit<
-    BunWSHandler,
-    'message' | 'open' | 'close' | 'ping' | 'pong' | 'drain'
->;
+type WebSocketOptionsKey = {
+    [K in keyof BunWSHandler]-?: Exclude<BunWSHandler[K], undefined> extends (...args: any[]) => any
+        ? never
+        : K;
+}[keyof BunWSHandler];
+
+export type WebSocketOptions = Pick<BunWSHandler, WebSocketOptionsKey>;
+
+export type DevServeOptions = Omit<BunServeOptions, 'fetch'> & {
+    websocket?: WebSocketOptions;
+};
 
 export interface WebSocketHandler {
     /**
@@ -131,26 +142,44 @@ export type AdapterOptions = {
     precompress?: boolean | PreCompressOptions;
 
     /**
-     * File patterns to ignore for static files
+     * Serve static assets, set if to false if you want to handle static assets yourself
+     * like using nginx or caddy. When it is true, an index of assets will build with
+     * bun's `import with { type: 'file' }` syntax, which make it ready to bundle into
+     * single executable file.
+     *
+     * @default true
+     */
+    serveStatic?: boolean;
+
+    /**
+     * File patterns to be ignored in the static assets, ex: `*.{br,gz}`
      * @default ["**​/.*"]
      */
     staticIgnores?: string[];
-
-    /**
-     * The name of the CLI
-     */
-    cliName?: string;
 
     /**
      * Export prerendered entries as json
      * @default false
      */
     exportPrerender?: boolean;
-};
 
-export type ResolvedStatic = [
-    path: string,
-    immutable: boolean,
-    headers: [modified: string, etag: string, size: number],
-    compression: [gzip: false | number, brotli: false | number]
-];
+    /**
+     * Include source maps
+     *
+     * @default true
+     */
+    sourceMap?: boolean | 'inline';
+
+    /**
+     * Minify the output when using bun build
+     *
+     * @default false
+     */
+    bunBuildMinify?:
+        | boolean
+        | {
+              whitespace?: boolean;
+              syntax?: boolean;
+              identifiers?: boolean;
+          };
+};

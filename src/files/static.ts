@@ -1,17 +1,14 @@
 import { get_url } from './utils';
 import { normalize } from 'path/posix';
-import { mapping } from '../mapping';
-import type { ResolvedStatic } from '../types';
+import { assets, type ResolvedStatic } from 'sveltekit-adapter-bun:assets';
 
 const headersMap = ['last-modified', 'etag', 'content-length'];
-
-const lookupTables = new Map(PRE_RESOLVE_STATIC);
 
 const methods = new Set(['HEAD', 'GET']);
 
 function lookup(pathname: string): [false, ResolvedStatic] | [string] | undefined {
     pathname = normalize(pathname);
-    let res = lookupTables.get(pathname);
+    let res = assets.get(pathname);
     if (res) return [false, res] as const;
     let tryFiles: string[];
     if (pathname === '/') {
@@ -26,11 +23,11 @@ function lookup(pathname: string): [false, ResolvedStatic] | [string] | undefine
         ];
     }
     for (let i = 0; i < tryFiles.length; i++) {
-        res = lookupTables.get(tryFiles[i]);
+        res = assets.get(tryFiles[i]);
         if (res) return [false, res] as const;
     }
     pathname = pathname.at(-1) === '/' ? pathname.slice(0, -1) : pathname + '/';
-    if (lookupTables.has(pathname)) return [pathname];
+    if (assets.has(pathname)) return [pathname];
 }
 
 function parse_range(header: Headers): [false] | [true, number, number | null] | false {
@@ -42,7 +39,7 @@ function parse_range(header: Headers): [false] | [true, number, number | null] |
     return [true, +match[1], match[2] ? +match[2] + 1 : null];
 }
 
-export function serve_static(request: Request, basePath: string) {
+function serve(request: Request, basePath: string) {
     if (!methods.has(request.method)) return;
     const url = get_url(request);
     const pathname = decodeURIComponent(url.pathname);
@@ -58,14 +55,13 @@ export function serve_static(request: Request, basePath: string) {
     }
     const [_, data] = res;
     const headers = new Headers(
-        data[mapping.headers].map((h, i) => [headersMap[i], h as string] as [string, string])
+        data.headers.map((h, i) => [headersMap[i], h as string] as [string, string])
     );
     const range = parse_range(request.headers);
-    const filePath = basePath + data[mapping.path];
-    const file = Bun.file(filePath);
+    const file = data.file;
     headers.set('content-type', file.type);
     if (range) {
-        const size = data[mapping.headers][mapping.h.size];
+        const size = data.headers[2];
         if (!range[0]) {
             headers.set('content-range', `bytes */${size}`);
             headers.set('content-length', '0');
@@ -101,11 +97,11 @@ export function serve_static(request: Request, basePath: string) {
     }
     headers.set(
         'cache-control',
-        data[mapping.immutable] ? 'public,max-age=604800,immutable' : 'public,max-age=14400'
+        data.immutable ? 'public,max-age=604800,immutable' : 'public,max-age=14400'
     );
     if (
         request.headers.has('if-none-match') &&
-        request.headers.get('if-none-match') === data[mapping.headers][mapping.h.etag]
+        request.headers.get('if-none-match') === data.headers[1]
     ) {
         return new Response(null, {
             status: 304,
@@ -114,7 +110,7 @@ export function serve_static(request: Request, basePath: string) {
     }
     if (
         request.headers.has('if-modified-since') &&
-        request.headers.get('if-modified-since') === data[mapping.headers][mapping.h.modified]
+        request.headers.get('if-modified-since') === data.headers[0]
     ) {
         return new Response(null, {
             status: 304,
@@ -127,17 +123,17 @@ export function serve_static(request: Request, basePath: string) {
         });
     }
     const ae = request.headers.get('accept-encoding')!;
-    if (ae.includes('br') && data[mapping.compression][mapping.c.brotli]) {
+    if (ae.includes('br') && data.compression[0]) {
         headers.set('content-encoding', 'br');
-        headers.set('content-length', data[mapping.compression][mapping.c.brotli] as any as string);
-        return new Response(Bun.file(filePath + '.br'), {
+        headers.set('content-length', data.compression[0].size as any as string);
+        return new Response(data.compression[0], {
             headers
         });
     }
-    if (ae.includes('gzip') && data[mapping.compression][mapping.c.gzip]) {
+    if (ae.includes('gzip') && data.compression[1]) {
         headers.set('content-encoding', 'gzip');
-        headers.set('content-length', data[mapping.compression][mapping.c.gzip] as any as string);
-        return new Response(Bun.file(filePath + '.gz'), {
+        headers.set('content-length', data.compression[1].size as any as string);
+        return new Response(data.compression[1], {
             headers
         });
     }
@@ -145,3 +141,5 @@ export function serve_static(request: Request, basePath: string) {
         headers
     });
 }
+
+export const serve_static = SERVE_STATIC ? serve : () => undefined;

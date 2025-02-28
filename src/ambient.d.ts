@@ -2,14 +2,22 @@ declare module 'SERVER' {
     import { CAC } from 'cac';
     import { Server as BunServer } from 'bun';
     export { Server, MaybePromise } from '@sveltejs/kit';
-    export function get_hooks(): Promise<{
-        setupCLI?: (cac: CAC) => MaybePromise<void>;
-        beforeServe?: (options: any) => MaybePromise<void>;
-        afterServe?: (server: BunServer, options: any) => MaybePromise<void>;
-    }>;
 }
 
 declare module 'MANIFEST' {
     import { SSRManifest, type MaybePromise } from '@sveltejs/kit';
     export const manifest: SSRManifest;
+}
+
+declare module 'sveltekit-adapter-bun:assets' {
+    import type { BunFile } from 'bun';
+
+    export type ResolvedStatic = {
+        file: BunFile;
+        immutable: boolean;
+        headers: [modified: string, etag: string, size: number];
+        compression: [gzip?: BunFile, brotli?: BunFile];
+    };
+
+    export const assets = new Map<string, ResolvedStatic>();
 }

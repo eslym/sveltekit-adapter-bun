@@ -1,8 +1,13 @@
 import { dirname, join } from 'path';
 import { EventEmitter } from 'events';
 import { IncomingMessage, ServerResponse } from 'http';
-import type { Server, WebSocketHandler as BunWSHandler } from 'bun';
-import type { WebSocketHandler } from './types';
+import type {
+    Server,
+    WebSocketHandler as BunWSHandler,
+    WebSocketServeOptions,
+    ServeOptions
+} from 'bun';
+import type { DevServeOptions, WebSocketHandler } from './types';
 import { symServer, symUpgrades } from './symbols';
 
 const getRequestPatch = `
@@ -77,8 +82,15 @@ export async function patchSveltekit() {
 export async function startDevServer({
     port = 5173,
     host = 'localhost',
-    config
-}: { port?: number; host?: string; config?: string } = {}) {
+    idleTimeout = 30,
+    config,
+    websocket = {},
+    ...serveOptions
+}: DevServeOptions & {
+    port?: number;
+    host?: string;
+    config?: string;
+} = {}) {
     if (!('Bun' in globalThis)) {
         throw new Error('Please run with bun');
     }
@@ -124,8 +136,10 @@ export async function startDevServer({
     await hooks.beforeServe?.();
 
     const server = Bun.serve({
+        ...serveOptions,
         hostname: host,
         port,
+        idleTimeout,
         async fetch(request: Request, server: Server) {
             let pendingResponse: Response | undefined;
             let pendingError: Error | undefined;
@@ -177,6 +191,7 @@ export async function startDevServer({
             return response;
         },
         websocket: {
+            ...websocket,
             open(ws) {
                 return ws.data.open?.(ws);
             },

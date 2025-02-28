@@ -3,7 +3,6 @@ import type {
     AdapterOptions,
     AdapterPlatform,
     PreCompressOptions,
-    ResolvedStatic,
     WebSocketHandler
 } from './types';
 import type { Adapter } from '@sveltejs/kit';
@@ -26,17 +25,23 @@ import json from '@rollup/plugin-json';
 import { join } from 'node:path/posix';
 import { uneval } from 'devalue';
 import { symServer, symUpgrades } from './symbols';
+import { build_assets_js } from './build-assets';
 export * from './dev';
+
+const assets_module = 'sveltekit-adapter-bun:assets';
 
 const files = fileURLToPath(new URL('./files', import.meta.url));
 
 export default function adapter(userOpts: AdapterOptions = {}): Adapter {
-    const opts: Required<Omit<AdapterOptions, 'cliName'>> & { cliName?: string } = {
+    const opts: Required<AdapterOptions> = {
         out: './build',
         precompress: false,
         exportPrerender: false,
+        serveStatic: true,
         staticIgnores: ['**/.*'],
         bundler: 'rollup',
+        sourceMap: true,
+        bunBuildMinify: false,
         ...userOpts
     };
     return {
@@ -63,6 +68,9 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
 
             const tmp = builder.getBuildDirectory(adapterName);
 
+            builder.rimraf(tmp);
+            builder.mkdirp(tmp);
+
             const { out, precompress } = opts;
 
             builder.rimraf(out);
@@ -81,110 +89,128 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                 ]);
             }
 
-            const mappings = new Map<string, ResolvedStatic>();
-
-            const staticIgnores = opts.staticIgnores.map((p) => new Bun.Glob(p));
-            const clientFiles = new Bun.Glob('**/*');
-
-            const clientPath = `${out}/client`;
-            const immutable = `${builder.config.kit.appDir}/immutable/`.replace(/^\/?/, '/');
-            for await (const path of clientFiles.scan({
-                cwd: clientPath,
-                dot: true,
-                onlyFiles: true,
-                absolute: false
-            })) {
-                if (staticIgnores.some((g) => g.match(path))) continue;
-                const pathname = path.replace(/\\/g, '/').replace(/^\/?/, '/');
-                const file = Bun.file(clientPath + pathname);
-                mappings.set(pathname, [
-                    join('/client', pathname),
-                    pathname.includes(immutable),
-                    [
-                        new Date(file.lastModified).toUTCString(),
-                        `"${Bun.SHA1.hash(await file.arrayBuffer(), 'hex')}"`,
-                        file.size
-                    ],
-                    [
-                        Bun.file(`${clientPath}${pathname}.gz`).size,
-                        Bun.file(`${clientPath}${pathname}.br`).size
-                    ]
-                ]);
-            }
-
-            const prerenderPath = `${out}/prerendered`;
-            for (const [pathname, target] of builder.prerendered.pages) {
-                const path = join(prerenderPath, target.file);
-                const file = Bun.file(path);
-                mappings.set(pathname, [
-                    join('/prerendered', target.file.replace(/\\/g, '/')),
-                    false,
-                    [
-                        new Date(file.lastModified).toUTCString(),
-                        `"${Bun.SHA1.hash(await file.arrayBuffer(), 'hex')}"`,
-                        file.size
-                    ],
-                    [Bun.file(`${path}.gz`).size, Bun.file(`${path}.br`).size]
-                ]);
-            }
-
             builder.log.minor('Building server');
-            builder.writeServer(tmp);
-
-            exportSetupCLI(tmp);
+            builder.writeServer(`${tmp}/server`);
 
             writeFileSync(
-                `${tmp}/manifest.js`,
+                `${tmp}/server/manifest.js`,
                 `export const manifest = ${builder.generateManifest({ relativePath: './' })};\n\n` +
                     `export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n`
             );
 
             const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 
-            builder.log.minor('Bundling...');
-
-            // we bundle the Vite output so that deployments only need
-            // their production dependencies. Anything in devDependencies
-            // will get included in the bundled code
-            const bundle = await rollup({
-                input: {
-                    index: `${tmp}/index.js`,
-                    manifest: `${tmp}/manifest.js`
-                },
-                external: [
-                    // dependencies could have deep exports, so we need a regex
-                    ...Object.keys(pkg.dependencies || {}).map((d) => new RegExp(`^${d}(\\/.*)?$`))
-                ],
-                plugins: [
-                    nodeResolve({
-                        preferBuiltins: true,
-                        exportConditions: ['node']
-                    }),
-                    // @ts-ignore https://github.com/rollup/plugins/issues/1329
-                    commonjs({ strictRequires: true }),
-                    // @ts-ignore https://github.com/rollup/plugins/issues/1329
-                    json()
-                ],
-                onLog(level, log) {
-                    builder.log[level === 'debug' ? 'minor' : level](log.message);
-                }
-            });
-
-            await bundle.write({
-                dir: `${out}/server`,
-                format: 'esm',
-                sourcemap: true,
-                chunkFileNames: 'chunks/[name]-[hash].js'
-            });
-
-            builder.copy(files, out, {
+            builder.copy(files, tmp, {
                 replace: {
                     SERVER: './server/index.js',
                     MANIFEST: './server/manifest.js',
-                    CLI_NAME: opts.cliName ? JSON.stringify(opts.cliName) : 'undefined',
-                    PRE_RESOLVE_STATIC: JSON.stringify([...mappings.entries()])
+                    SERVE_STATIC: opts.serveStatic ? 'true' : 'false'
                 }
             });
+
+            builder.log.minor('Bundling...');
+
+            if (opts.bundler === 'rollup') {
+                // we bundle the Vite output so that deployments only need
+                // their production dependencies. Anything in devDependencies
+                // will get included in the bundled code
+                const bundle = await rollup({
+                    input: {
+                        index: `${tmp}/index.js`,
+                        manifest: `${tmp}/server/manifest.js`
+                    },
+                    external: [
+                        assets_module,
+                        // dependencies could have deep exports, so we need a regex
+                        ...Object.keys(pkg.dependencies || {}).map(
+                            (d) => new RegExp(`^${d}(\\/.*)?$`)
+                        )
+                    ],
+                    plugins: [
+                        nodeResolve({
+                            preferBuiltins: true,
+                            exportConditions: ['node']
+                        }),
+                        // @ts-ignore https://github.com/rollup/plugins/issues/1329
+                        commonjs({ strictRequires: true }),
+                        // @ts-ignore https://github.com/rollup/plugins/issues/1329
+                        json()
+                    ],
+                    onLog(level, log) {
+                        builder.log[level === 'debug' ? 'minor' : level](log.message);
+                    }
+                });
+
+                await bundle.write({
+                    dir: out,
+                    format: 'esm',
+                    sourcemap: opts.sourceMap,
+                    chunkFileNames: 'server/[name]-[hash].js'
+                });
+            } else {
+                const res = await Bun.build({
+                    target: 'bun',
+                    entrypoints: [`${tmp}/index.js`, `${tmp}/server/manifest.js`],
+                    outdir: out,
+                    sourcemap:
+                        opts.sourceMap === true ? 'linked' : opts.sourceMap ? 'inline' : 'none',
+                    naming: {
+                        entry: '[name].[ext]',
+                        chunk: 'server/[name]-[hash].[ext]'
+                    },
+                    external: [assets_module, ...Object.keys(pkg.dependencies || {})],
+                    splitting: true,
+                    format: 'esm',
+                    minify: opts.bunBuildMinify
+                });
+
+                for (const msg of res.logs) {
+                    switch (msg.level) {
+                        case 'info':
+                            builder.log.info(Bun.inspect(msg, { colors: true }));
+                            break;
+                        case 'warning':
+                            builder.log.warn(Bun.inspect(msg, { colors: true }));
+                            break;
+                        case 'error':
+                            builder.log.error(Bun.inspect(msg, { colors: true }));
+                            break;
+                    }
+                }
+
+                if (!res.success) {
+                    process.exit(1);
+                }
+            }
+
+            const index = await Bun.file(`${out}/index.js`).text();
+            await Bun.write(
+                `${out}/index.js`,
+                index.replace(` from "${assets_module}"`, ' from "./assets.js"')
+            );
+
+            const immutable = `${builder.config.kit.appDir}/immutable/`.replace(/^\/?/, '/');
+
+            const staticIgnores = opts.staticIgnores.map((p) => new Bun.Glob(p));
+            const clientFiles = new Bun.Glob('**/*');
+            const clientPath = `${out}/client`;
+
+            const assets_js = opts.serveStatic
+                ? await build_assets_js(
+                      out,
+                      clientFiles.scan({
+                          cwd: clientPath,
+                          dot: true,
+                          absolute: false,
+                          onlyFiles: true
+                      }),
+                      builder.prerendered.pages,
+                      immutable,
+                      staticIgnores
+                  )
+                : 'export const assets = new Map();';
+
+            await Bun.write(`${out}/assets.js`, assets_js);
 
             if ('patchedDependencies' in pkg) {
                 const deps = Object.keys(pkg.devDependencies || {});
@@ -308,13 +334,6 @@ async function compress_file(file: string, format: 'gz' | 'br' = 'gz') {
     const destination = createWriteStream(`${file}.${format}`);
 
     await pipeline(source, compress, destination);
-}
-
-function exportSetupCLI(out: string) {
-    let src = readFileSync(`${out}/index.js`, 'utf8');
-    const result = src.replace(/^export\s*{/gm, 'export {\nget_hooks,\n');
-
-    writeFileSync(`${out}/index.js`, result, 'utf8');
 }
 
 export { type AdapterOptions, type AdapterPlatform };
