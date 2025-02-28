@@ -119,10 +119,10 @@ export type AdapterOptions = {
     out?: string;
 
     /**
-     * Transpile server code with bun transpiler after build. (will add `// @bun` tag to first line)
-     * @default false
+     * The bundler for the final step build.
+     * @default 'rollup'
      */
-    transpileBun?: boolean;
+    bundler?: 'rollup' | 'bun';
 
     /**
      * Enable pre-compress
@@ -135,11 +135,6 @@ export type AdapterOptions = {
      * @default ["**​/.*"]
      */
     staticIgnores?: string[];
-
-    /**
-     * Websocket serve options
-     */
-    websocketOptions?: WebSocketOptions;
 
     /**
      * The name of the CLI

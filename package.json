@@ -21,17 +21,16 @@
     }
   },
   "devDependencies": {
-    "@sveltejs/kit": "^2.5.26",
+    "@sveltejs/kit": "^2.17.3",
     "@types/bun": "latest",
-    "cac": "^6.7.14",
-    "devalue": "^5.0.0",
-    "prettier": "^3.3.3",
-    "typescript": "^5.5.4"
+    "devalue": "^5.1.1",
+    "prettier": "^3.5.2",
+    "typescript": "^5.7.3"
   },
   "dependencies": {
-    "@rollup/plugin-commonjs": "^26.0.1",
+    "@rollup/plugin-commonjs": "^26.0.3",
     "@rollup/plugin-json": "^6.1.0",
-    "@rollup/plugin-node-resolve": "^15.2.3",
-    "rollup": "^4.21.2"
+    "@rollup/plugin-node-resolve": "^15.3.1",
+    "rollup": "^4.34.8"
   }
 }

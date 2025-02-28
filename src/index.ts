@@ -33,11 +33,10 @@ const files = fileURLToPath(new URL('./files', import.meta.url));
 export default function adapter(userOpts: AdapterOptions = {}): Adapter {
     const opts: Required<Omit<AdapterOptions, 'cliName'>> & { cliName?: string } = {
         out: './build',
-        transpileBun: false,
         precompress: false,
         exportPrerender: false,
-        websocketOptions: {},
         staticIgnores: ['**/.*'],
+        bundler: 'rollup',
         ...userOpts
     };
     return {
@@ -183,22 +182,9 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                     SERVER: './server/index.js',
                     MANIFEST: './server/manifest.js',
                     CLI_NAME: opts.cliName ? JSON.stringify(opts.cliName) : 'undefined',
-                    PRE_RESOLVE_STATIC: JSON.stringify([...mappings.entries()]),
-                    WEBSOCKET_OPTIONS: JSON.stringify(opts.websocketOptions)
+                    PRE_RESOLVE_STATIC: JSON.stringify([...mappings.entries()])
                 }
             });
-
-            const transpiler = new Bun.Transpiler({ loader: 'js' });
-
-            if (opts.transpileBun) {
-                const glob = new Bun.Glob('./server/**/*.js');
-                const files = [...glob.scanSync({ cwd: out, absolute: true })];
-                for (const file of files) {
-                    const src = await Bun.file(file).text();
-                    if (src.startsWith('// @bun')) continue;
-                    await Bun.write(file, '// @bun\n' + transpiler.transformSync(src));
-                }
-            }
 
             if ('patchedDependencies' in pkg) {
                 const deps = Object.keys(pkg.devDependencies || {});
@@ -225,7 +211,7 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                     `export const assets = ${uneval(builder.prerendered.assets)};\n` +
                     `export const redirects = ${uneval(builder.prerendered.redirects)};\n` +
                     `export default { paths, prerendered, assets, redirects };\n`;
-                writeFileSync(`${out}/prerendered.js`, '//@bun\n' + transpiler.transformSync(js));
+                writeFileSync(`${out}/prerendered.js`, js);
             }
 
             builder.log.success(`Build done.`);
