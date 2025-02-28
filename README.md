@@ -10,7 +10,8 @@ The built bundle with version `2.0.0` will be ready to compile into single execu
 bun add -d @eslym/sveltekit-adapter-bun
 ```
 
-> [!IMPORTANT] > **Breaking Changes**
+> [!IMPORTANT]  
+> **Breaking Changes**
 >
 > Since version `2.0.0`, the custom hooks (`beforeServe`, `afterServe` and `setupCLI`) and CLI functionality is complemetely removed.
 
