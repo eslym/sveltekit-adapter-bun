@@ -9,7 +9,7 @@ declare module 'MANIFEST' {
     export const manifest: SSRManifest;
 }
 
-declare module 'sveltekit-adapter-bun:assets' {
+declare module 'ASSETS' {
     import type { BunFile } from 'bun';
 
     export type ResolvedStatic = {

@@ -89,23 +89,15 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
             }
 
             builder.log.minor('Building server');
-            builder.writeServer(`${tmp}/server`);
+            builder.writeServer(tmp);
 
             writeFileSync(
-                `${tmp}/server/manifest.js`,
+                `${tmp}/manifest.js`,
                 `export const manifest = ${builder.generateManifest({ relativePath: './' })};\n\n` +
                     `export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n`
             );
 
             const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
-
-            builder.copy(files, tmp, {
-                replace: {
-                    SERVER: './server/index.js',
-                    MANIFEST: './server/manifest.js',
-                    SERVE_STATIC: opts.serveStatic ? 'true' : 'false'
-                }
-            });
 
             builder.log.minor('Bundling...');
 
@@ -116,7 +108,7 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                 const bundle = await rollup({
                     input: {
                         index: `${tmp}/index.js`,
-                        manifest: `${tmp}/server/manifest.js`
+                        manifest: `${tmp}/manifest.js`
                     },
                     external: [
                         assets_module,
@@ -141,21 +133,21 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                 });
 
                 await bundle.write({
-                    dir: out,
+                    dir: `${out}/server`,
                     format: 'esm',
                     sourcemap: opts.sourceMap,
-                    chunkFileNames: 'server/[name]-[hash].js'
+                    chunkFileNames: 'chunks/[name]-[hash].js'
                 });
             } else {
                 const res = await Bun.build({
                     target: 'bun',
-                    entrypoints: [`${tmp}/index.js`, `${tmp}/server/manifest.js`],
-                    outdir: out,
+                    entrypoints: [`${tmp}/index.js`, `${tmp}/manifest.js`],
+                    outdir: `${out}/server`,
                     sourcemap:
                         opts.sourceMap === true ? 'linked' : opts.sourceMap ? 'inline' : 'none',
                     naming: {
                         entry: '[name].[ext]',
-                        chunk: 'server/[name]-[hash].[ext]'
+                        chunk: 'chunks/[name]-[hash].[ext]'
                     },
                     external: [assets_module, ...Object.keys(pkg.dependencies || {})],
                     splitting: true,
@@ -182,6 +174,15 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                 }
             }
 
+            builder.copy(files, out, {
+                replace: {
+                    SERVER: './server/index.js',
+                    MANIFEST: './server/manifest.js',
+                    ASSETS: './assets.js',
+                    SERVE_STATIC: opts.serveStatic ? 'true' : 'false'
+                }
+            });
+
             const immutable = `${builder.config.kit.appDir}/immutable/`.replace(/^\/?/, '/');
 
             const staticIgnores = opts.staticIgnores.map((p) => new Bun.Glob(p));
@@ -201,7 +202,7 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                       immutable,
                       staticIgnores
                   )
-                : 'export const assets = new Map();';
+                : '// @bun\nexport const assets = new Map();';
 
             await Bun.write(`${out}/assets.js`, assets_js);
 

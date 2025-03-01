@@ -96,8 +96,7 @@ export async function create_fetch({
         resolvers.push(override_origin_with_header.bind(null, hostHeader, protocolHeader));
     }
     if (SERVE_STATIC) {
-        const { assets } = await import('sveltekit-adapter-bun:assets');
-        resolvers.push(serve_static.bind(null, assets));
+        resolvers.push(serve_static);
     }
     return (request: Request, srv: Server) => {
         const request_ip = srv.requestIP(request)?.address;

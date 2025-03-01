@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import './server';
 import type { WebSocketHandler } from '../types';
 import { create_fetch } from './handle';
