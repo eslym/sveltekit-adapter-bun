@@ -4,8 +4,6 @@ import { IncomingMessage, ServerResponse } from 'http';
 import type {
     Server,
     WebSocketHandler as BunWSHandler,
-    WebSocketServeOptions,
-    ServeOptions
 } from 'bun';
 import type { DevServeOptions, WebSocketHandler } from './types';
 import { symServer, symUpgrades } from './symbols';

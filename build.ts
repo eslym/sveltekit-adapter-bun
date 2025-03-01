@@ -27,7 +27,12 @@ const buildFiles = await Bun.build({
     entrypoints: [join(import.meta.dir, 'src/files/index.ts')],
     outdir: join(import.meta.dir, 'dist/files'),
     external: ['SERVER', 'MANIFEST', 'sveltekit-adapter-bun:assets'],
-    target: 'bun'
+    target: 'bun',
+    splitting: true,
+    naming: {
+        entry: '[name].[ext]',
+        chunk: 'chunk-[hash].[ext]'
+    }
 });
 
 for (const log of buildFiles.logs) {

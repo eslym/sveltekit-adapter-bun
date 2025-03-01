@@ -1,11 +1,20 @@
 import './server';
-import { set_basepath } from './utils';
 import type { WebSocketHandler } from '../types';
 import { create_fetch } from './handle';
 import type { WebSocketHandler as BunWSHandler } from 'bun';
 import { bool_env, bytes_env, duration_env, http_env, int_env, ws_env } from './env';
+import { resolve } from 'path';
 
-set_basepath(import.meta.dir);
+Bun.plugin({
+    name: 'asset-module',
+    target: 'bun',
+    setup(build) {
+        build.module('sveltekit-adapter-bun:assets', async () => ({
+            loader: 'object',
+            exports: await import(resolve(import.meta.dir, './assets'))
+        }));
+    }
+});
 
 async function serve() {
     const socket = http_env('SOCKET');
@@ -22,7 +31,7 @@ async function serve() {
         ...serverOptions,
         idleTimeout: duration_env(http_env, 'IDLE_TIMEOUT', 30),
         maxRequestBodySize: bytes_env(http_env, 'MAX_BODY', 128 * 1024 * 1024),
-        fetch: create_fetch({
+        fetch: await create_fetch({
             overrideOrigin: http_env('OVERRIDE_ORIGIN'),
             hostHeader: http_env('HOST_HEADER'),
             protocolHeader: http_env('PROTOCOL_HEADER'),

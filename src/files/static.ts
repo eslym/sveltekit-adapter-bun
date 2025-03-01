@@ -1,12 +1,17 @@
 import { get_url } from './utils';
 import { normalize } from 'path/posix';
-import { assets, type ResolvedStatic } from 'sveltekit-adapter-bun:assets';
+import type { ResolvedStatic } from 'sveltekit-adapter-bun:assets';
+
+type AssetsMap = Map<string, ResolvedStatic>;
 
 const headersMap = ['last-modified', 'etag', 'content-length'];
 
 const methods = new Set(['HEAD', 'GET']);
 
-function lookup(pathname: string): [false, ResolvedStatic] | [string] | undefined {
+function lookup(
+    assets: AssetsMap,
+    pathname: string
+): [false, ResolvedStatic] | [string] | undefined {
     pathname = normalize(pathname);
     let res = assets.get(pathname);
     if (res) return [false, res] as const;
@@ -39,11 +44,11 @@ function parse_range(header: Headers): [false] | [true, number, number | null] |
     return [true, +match[1], match[2] ? +match[2] + 1 : null];
 }
 
-function serve(request: Request, basePath: string) {
+export async function serve_static(assets: AssetsMap, { request }: { request: Request }) {
     if (!methods.has(request.method)) return;
     const url = get_url(request);
     const pathname = decodeURIComponent(url.pathname);
-    const res = lookup(pathname);
+    const res = lookup(assets, pathname);
     if (!res) return;
     if (res[0] !== false) {
         return new Response(null, {
@@ -141,5 +146,3 @@ function serve(request: Request, basePath: string) {
         headers
     });
 }
-
-export const serve_static = SERVE_STATIC ? serve : () => undefined;

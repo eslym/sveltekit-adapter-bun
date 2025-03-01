@@ -22,7 +22,6 @@ import { rollup } from 'rollup';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
-import { join } from 'node:path/posix';
 import { uneval } from 'devalue';
 import { symServer, symUpgrades } from './symbols';
 import { build_assets_js } from './build-assets';
@@ -182,12 +181,6 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                     process.exit(1);
                 }
             }
-
-            const index = await Bun.file(`${out}/index.js`).text();
-            await Bun.write(
-                `${out}/index.js`,
-                index.replace(` from "${assets_module}"`, ' from "./assets.js"')
-            );
 
             const immutable = `${builder.config.kit.appDir}/immutable/`.replace(/^\/?/, '/');
 

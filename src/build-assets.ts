@@ -62,16 +62,20 @@ namespace T {
     }
 }
 
+function to_base36(n: number) {
+    return n.toString(36);
+}
+
 function get_imports_n(
     imports: Iterable<string>[],
-    declared: Map<string, number>,
+    declared: Map<string, string>,
     import_path: string
 ) {
     let n = declared.get(import_path);
     if (n === undefined) {
-        n = imports.length;
+        n = to_base36(imports.length);
         imports.push(
-            T.concat(`import file${n} from `, T.stringify(import_path), ' with { type: "file" };')
+            T.concat(`import f_${n} from `, T.stringify(import_path), ' with { type: "file" };')
         );
         declared.set(import_path, n);
     }
@@ -87,7 +91,7 @@ export async function build_assets_js(
 ): Promise<string> {
     const imports: Iterable<string>[] = [];
     const records: Iterable<string>[] = [];
-    const declared = new Map<string, number>();
+    const declared = new Map<string, string>();
 
     for await (const path of client_files) {
         if (ignores.some((ignore) => ignore.match(path))) continue;
@@ -117,7 +121,7 @@ export async function build_assets_js(
     }
 
     return T.collect(
-        "// @bun\n",
+        '// @bun\n',
         "import { file } from 'bun';\n",
         T.join(imports, '\n'),
         '\n',
@@ -129,7 +133,7 @@ export async function build_assets_js(
 }
 
 async function build_asset_record(
-    declared: Map<string, number>,
+    declared: Map<string, string>,
     imports: Iterable<string>[],
     pathname: string,
     filepath: string,
@@ -153,7 +157,7 @@ async function build_asset_record(
                 [
                     T.stringify(pathname),
                     T.obj([
-                        ['file', T.fn('file', `file${file_n}`)],
+                        ['file', T.fn('file', `f_${file_n}`)],
                         ['immutable', pathname.startsWith(immutable_prefix) ? 'true' : 'false'],
                         [
                             'headers',
@@ -163,9 +167,9 @@ async function build_asset_record(
                             'compression',
                             T.concat(
                                 '[',
-                                br_n ? T.fn('file', `file${br_n}`) : 'undefined',
+                                br_n ? T.fn('file', `f_${br_n}`) : 'undefined',
                                 ', ',
-                                gz_n ? T.fn('file', `file${gz_n}`) : 'undefined',
+                                gz_n ? T.fn('file', `f_${gz_n}`) : 'undefined',
                                 ']'
                             )
                         ]

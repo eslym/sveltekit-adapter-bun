@@ -1,5 +1,5 @@
 import type { AdapterPlatform, ServeOptions, WebSocketHandler } from '../types';
-import { get_basepath, get_url, set_url } from './utils';
+import { get_url, set_url } from './utils';
 import { serve_static } from './static';
 import type { Server } from 'bun';
 import { server } from './server';
@@ -39,7 +39,7 @@ async function first_resolve(request: Request, resolvers: Resolvers) {
     }
 }
 
-function override_origin(args: { request: Request }, origin: URL) {
+function override_origin(origin: URL, args: { request: Request }) {
     const url = get_url(args.request);
     const newUrl = new URL(url.pathname + url.search, origin);
     args.request = clone_req(newUrl, args.request);
@@ -47,9 +47,9 @@ function override_origin(args: { request: Request }, origin: URL) {
 }
 
 function override_origin_with_header(
-    args: { request: Request },
     hostHeader: string | undefined,
-    protocolHeader: string | undefined
+    protocolHeader: string | undefined,
+    args: { request: Request }
 ) {
     const url = get_url(args.request);
     let newUrl = new URL(url);
@@ -71,14 +71,13 @@ function resolve_xff_ip(request: Request, depth: number) {
     return ips.at(-depth) || undefined;
 }
 
-export function create_fetch({
+export async function create_fetch({
     overrideOrigin,
     hostHeader,
     protocolHeader,
     ipHeader,
     xffDepth
 }: FetchOptions) {
-    const basePath = get_basepath();
     let getIp: GetIP | undefined = undefined;
     if (ipHeader === 'x-forwarded-for') {
         getIp = (req, fallback) => resolve_xff_ip(req, xffDepth!) ?? fallback;
@@ -92,11 +91,14 @@ export function create_fetch({
         return response;
     }
     if (overrideOrigin) {
-        resolvers.push((args) => override_origin(args, new URL(overrideOrigin)));
+        resolvers.push(override_origin.bind(null, new URL(overrideOrigin)));
     } else if (hostHeader || protocolHeader) {
-        resolvers.push((args) => override_origin_with_header(args, hostHeader, protocolHeader));
+        resolvers.push(override_origin_with_header.bind(null, hostHeader, protocolHeader));
     }
-    resolvers.push(({ request }) => serve_static(request, basePath));
+    if (SERVE_STATIC) {
+        const { assets } = await import('sveltekit-adapter-bun:assets');
+        resolvers.push(serve_static.bind(null, assets));
+    }
     return (request: Request, srv: Server) => {
         const request_ip = srv.requestIP(request)?.address;
         const try_get_ip = getIp ? () => getIp(request, request_ip) : () => request_ip;
