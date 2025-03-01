@@ -82,6 +82,10 @@ function get_imports_n(
     return n;
 }
 
+function normalize_path(path: string) {
+    return path.replace(/\\/g, '/');
+}
+
 export async function build_assets_js(
     base_path: string,
     client_files: AsyncIterableIterator<string>,
@@ -95,13 +99,14 @@ export async function build_assets_js(
 
     for await (const path of client_files) {
         if (ignores.some((ignore) => ignore.match(path))) continue;
+        const normalized = normalize_path(path);
         records.push(
             await build_asset_record(
                 declared,
                 imports,
-                path.replace(/^(?:\.?\/)?/, '/'),
-                join(base_path, 'client', path),
-                './' + join('client', path),
+                normalized.replace(/^(?:\.?\/)?/, '/'),
+                join(base_path, 'client', normalized),
+                './' + join('client', normalized),
                 immutable_prefix
             )
         );
