@@ -96,10 +96,12 @@ export type AdapterOptions = {
     bundler?: 'rollup' | 'bun';
 
     /**
-     * Enable pre-compress
+     * Enable pre-compress, use number to specify a minimum file size which will be compressed.
+     * When it is true, the minimum size is 1KiB.
+     *
      * @default false
      */
-    precompress?: boolean | PreCompressOptions;
+    precompress?: boolean | PreCompressOptions | number;
 
     /**
      * Serve static assets, set if to false if you want to handle static assets yourself
@@ -142,6 +144,22 @@ export type AdapterOptions = {
               syntax?: boolean;
               identifiers?: boolean;
           };
+};
+
+export type PreCompressOptions = {
+    /**
+     * Enable specific compression, number means the minimum size to compress.
+     * 1KiB will be used when the value is `true`, set to `0` for always compress.
+     *
+     * @default true;
+     */
+    [k in 'gzip' | 'brotli']?: boolean | number;
+} & {
+    /**
+     * Extensions to pre-compress
+     * @default ['html','js','json','css','svg','xml','wasm']
+     */
+    files?: string[];
 };
 ```
 

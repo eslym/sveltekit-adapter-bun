@@ -266,15 +266,18 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
     };
 }
 
-async function compress(directory: string, options: true | PreCompressOptions) {
+const default_minimum_size = 1024;
+
+async function compress(directory: string, options: true | PreCompressOptions | number) {
     if (!existsSync(directory)) {
         return;
     }
 
     const files_ext =
-        options === true || !options.files
+        options === true || typeof options === 'number' || !options.files
             ? ['html', 'js', 'json', 'css', 'svg', 'xml', 'wasm']
             : options.files;
+
     const glob = new Bun.Glob(`**/*.{${files_ext.join()}}`);
     const files = [
         ...glob.scanSync({
@@ -285,20 +288,36 @@ async function compress(directory: string, options: true | PreCompressOptions) {
         })
     ];
 
-    let doBr = false,
-        doGz = false;
+    let doBr: false | number = false,
+        doGz: false | number = false;
 
     if (options === true) {
-        doBr = doGz = true;
+        doBr = doGz = default_minimum_size;
+    } else if (typeof options == 'number') {
+        doBr = doGz = options;
     } else if (typeof options == 'object') {
-        doBr = options.brotli ?? false;
-        doGz = options.gzip ?? false;
+        doBr =
+            typeof options.brotli === 'number'
+                ? options.brotli
+                : options.brotli
+                  ? default_minimum_size
+                  : false;
+        doGz =
+            typeof options.gzip === 'number'
+                ? options.gzip
+                : options.gzip
+                  ? default_minimum_size
+                  : false;
     }
 
     await Promise.all(
-        files.map((file) =>
-            Promise.all([doGz && compress_file(file, 'gz'), doBr && compress_file(file, 'br')])
-        )
+        files.map((file) => {
+            const size = Bun.file(file).size;
+            return Promise.all([
+                doGz !== false && size >= doGz && compress_file(file, 'gz'),
+                doBr !== false && size >= doBr && compress_file(file, 'br')
+            ]);
+        })
     );
 }
 
