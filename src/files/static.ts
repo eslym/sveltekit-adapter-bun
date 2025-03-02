@@ -1,10 +1,14 @@
 import { get_url } from './utils';
 import { normalize } from 'path/posix';
 import { assets, type ResolvedStatic } from 'ASSETS';
+import { duration_env, get_env } from './env';
 
 const headersMap = ['last-modified', 'etag', 'content-length'];
 
 const methods = new Set(['HEAD', 'GET']);
+
+const asset_ttl = `public,max-age=${duration_env('CACHE_ASSET_AGE', 14400)}`;
+const immutable_ttl = `public,max-age=${duration_env('CACHE_IMMUTABLE_AGE', 31536000)},immutable`;
 
 function lookup(pathname: string): [false, ResolvedStatic] | [string] | undefined {
     pathname = normalize(pathname);
@@ -95,10 +99,7 @@ export async function serve_static({ request }: { request: Request }) {
             headers
         });
     }
-    headers.set(
-        'cache-control',
-        data.immutable ? 'public,max-age=604800,immutable' : 'public,max-age=14400'
-    );
+    headers.set('cache-control', data.immutable ? immutable_ttl : asset_ttl);
     if (
         request.headers.has('if-none-match') &&
         request.headers.get('if-none-match') === data.headers[1]

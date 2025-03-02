@@ -165,18 +165,20 @@ export type PreCompressOptions = {
 
 ## Runtime Environments
 
-| Name                   | Description                                                                          | Default   |
-| ---------------------- | ------------------------------------------------------------------------------------ | --------- |
-| `HTTP_HOST`            | The host for the server                                                              | `0.0.0.0` |
-| `HTTP_PORT`            | The port for the server                                                              | `3000`    |
-| `HTTP_SOCKET`          | The path of the unix socket which the server will listen to (this will disable http) | -         |
-| `HTTP_PROTOCOL_HEADER` | The header name to get the protocol from the request                                 | -         |
-| `HTTP_HOST_HEADER`     | The header name to get the host from the request                                     | -         |
-| `HTTP_IP_HEADER`       | The header name to get the client ip from the request (usually `X-Forwarded-For`)    | -         |
-| `HTTP_XFF_DEPTH`       | The depth of the `X-Forwarded-For` header to get the client ip                       | `1`       |
-| `HTTP_OVERRIDE_ORIGIN` | Force the request origin when it is unable to retrieve from the request              | -         |
-| `HTTP_IDLE_TIMEOUT`    | The request timeout for the server(in seconds)                                       | `30`      |
-| `HTTP_MAX_BODY`        | The maximum body size for the request                                                | `128mib`  |
-| `WS_IDLE_TIMEOUT`      | The websocket idle timeout (in seconds)                                              | `120`     |
-| `WS_MAX_PAYLOAD`       | The maximum payload size for the websocket                                           | `16mib`   |
-| `WS_NO_PING`           | Disable automatic ping response                                                      | `false`   |
+| Name                   | Description                                                                          | Default    |
+| ---------------------- | ------------------------------------------------------------------------------------ | ---------- |
+| `HTTP_HOST`            | The host for the server                                                              | `0.0.0.0`  |
+| `HTTP_PORT`            | The port for the server                                                              | `3000`     |
+| `HTTP_SOCKET`          | The path of the unix socket which the server will listen to (this will disable http) | -          |
+| `HTTP_PROTOCOL_HEADER` | The header name to get the protocol from the request                                 | -          |
+| `HTTP_HOST_HEADER`     | The header name to get the host from the request                                     | -          |
+| `HTTP_IP_HEADER`       | The header name to get the client ip from the request (usually `X-Forwarded-For`)    | -          |
+| `HTTP_XFF_DEPTH`       | The depth of the `X-Forwarded-For` header to get the client ip                       | `1`        |
+| `HTTP_OVERRIDE_ORIGIN` | Force the request origin when it is unable to retrieve from the request              | -          |
+| `HTTP_IDLE_TIMEOUT`    | The request timeout for the server(in seconds)                                       | `30`       |
+| `HTTP_MAX_BODY`        | The maximum body size for the request                                                | `128mib`   |
+| `WS_IDLE_TIMEOUT`      | The websocket idle timeout (in seconds)                                              | `120`      |
+| `WS_MAX_PAYLOAD`       | The maximum payload size for the websocket                                           | `16mib`    |
+| `WS_NO_PING`           | Disable automatic ping response                                                      | `false`    |
+| `CACHE_ASSET_AGE`      | The max-age for the cache-control header for the assets                              | `14400`    |
+| `CACHE_IMMUTABLE_AGE`  | The max-age for the cache-control header for the immutable assets                    | `31536000` |

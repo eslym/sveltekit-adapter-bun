@@ -3,7 +3,7 @@ import './server';
 import type { WebSocketHandler } from '../types';
 import { create_fetch } from './handle';
 import type { WebSocketHandler as BunWSHandler } from 'bun';
-import { bool_env, bytes_env, duration_env, http_env, int_env, ws_env } from './env';
+import { bool_env, bytes_env, duration_env, get_env, int_env } from './env';
 import { resolve } from 'path';
 
 Bun.plugin({
@@ -18,31 +18,31 @@ Bun.plugin({
 });
 
 async function serve() {
-    const socket = http_env('SOCKET');
+    const socket = get_env('HTTP_SOCKET');
     const serverOptions = socket
         ? {
               unix: socket
           }
         : {
-              hostname: http_env('HOST', '0.0.0.0'),
-              port: http_env('PORT', '3000')
+              hostname: get_env('HTTP_HOST', '0.0.0.0'),
+              port: get_env('HTTP_PORT', '3000')
           };
 
     const server = Bun.serve({
         ...serverOptions,
-        idleTimeout: duration_env(http_env, 'IDLE_TIMEOUT', 30),
-        maxRequestBodySize: bytes_env(http_env, 'MAX_BODY', 128 * 1024 * 1024),
+        idleTimeout: duration_env('HTTP_IDLE_TIMEOUT', 30),
+        maxRequestBodySize: bytes_env('HTTP_MAX_BODY', 128 * 1024 * 1024),
         fetch: await create_fetch({
-            overrideOrigin: http_env('OVERRIDE_ORIGIN'),
-            hostHeader: http_env('HOST_HEADER'),
-            protocolHeader: http_env('PROTOCOL_HEADER'),
-            ipHeader: http_env('IP_HEADER'),
-            xffDepth: int_env(http_env, 'XFF_DEPTH', 1)
+            overrideOrigin: get_env('HTTP_OVERRIDE_ORIGIN'),
+            hostHeader: get_env('HTTP_HOST_HEADER'),
+            protocolHeader: get_env('HTTP_PROTOCOL_HEADER'),
+            ipHeader: get_env('HTTP_IP_HEADER'),
+            xffDepth: int_env('HTTP_XFF_DEPTH', 1)
         }),
         websocket: {
-            idleTimeout: duration_env(ws_env, 'IDLE_TIMEOUT', 120),
-            maxPayloadLength: bytes_env(ws_env, 'MAX_PAYLOAD', 16 * 1024 * 1024),
-            sendPings: !bool_env(ws_env, 'NO_PING'),
+            idleTimeout: duration_env('WS_IDLE_TIMEOUT', 120),
+            maxPayloadLength: bytes_env('WS_MAX_PAYLOAD', 16 * 1024 * 1024),
+            sendPings: !bool_env('WS_NO_PING'),
             message(ws, message) {
                 return ws.data.message(ws, message);
             },
