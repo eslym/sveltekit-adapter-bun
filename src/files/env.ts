@@ -22,7 +22,7 @@ type ENV_NAMES =
 export function get_env(name: ENV_NAMES): string | undefined;
 export function get_env(name: ENV_NAMES, fallback: string): string;
 export function get_env(name: ENV_NAMES, fallback?: string) {
-    return env[`HTTP_${name}`] ?? fallback;
+    return env[name] ?? fallback;
 }
 
 export function int_env(name: ENV_NAMES, fallback: number): number {
