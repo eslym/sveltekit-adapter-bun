@@ -21,8 +21,7 @@ export function mockNodeRequest(
 } {
     const remote = server.requestIP(request)!;
 
-    const readable = request.body ? Readable.fromWeb(request.body as any) : Readable.from([]);
-
+    const readable = new Readable({ read() {} });
     const writable = new PassThrough();
 
     const mockSocket = Duplex.from({ readable, writable }) as any as Socket;
@@ -52,7 +51,27 @@ export function mockNodeRequest(
         req.headers[name] = value;
     });
 
-    (req as any)[kReq] = request;
+    async function* read() {
+        if (!request.body) {
+            readable.push(null);
+            return;
+        }
+        const reader = request.body.getReader();
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            readable.push(value);
+            yield value;
+        }
+        readable.push(null);
+    }
+
+    (req as any)[kReq] = new Request(request.url, {
+        headers: request.headers,
+        method: request.method,
+        body: new Response(read() as any).body,
+        signal: request.signal
+    });
 
     const { promise, resolve, reject } = Promise.withResolvers<Response>();
 
@@ -97,6 +116,15 @@ export function mockNodeRequest(
             (writable as any).writeHead((writable as any).statusCode);
         }
         (old_write as any)(...args);
+    };
+
+    const old_end = writable.end.bind(writable);
+    (writable as any).end = (...args: any[]) => {
+        if (!headerSent) {
+            (writable as any).statusCode ??= 200;
+            (writable as any).writeHead((writable as any).statusCode);
+        }
+        (old_end as any)(...args);
     };
 
     return {
