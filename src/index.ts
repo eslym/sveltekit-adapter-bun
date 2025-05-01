@@ -25,7 +25,6 @@ import json from '@rollup/plugin-json';
 import { uneval } from 'devalue';
 import { symServer, symUpgrades } from './symbols';
 import { build_assets_js } from './build-assets';
-export * from './dev';
 
 const assets_module = 'sveltekit-adapter-bun:assets';
 

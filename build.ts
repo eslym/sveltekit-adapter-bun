@@ -5,7 +5,7 @@ await Bun.$`rm -rf ${join(import.meta.dir, 'dist')}`;
 import { dependencies } from './package.json';
 
 const buildIndex = await Bun.build({
-    entrypoints: [join(import.meta.dir, 'src/index.ts')],
+    entrypoints: [join(import.meta.dir, 'src/index.ts'), join(import.meta.dir, 'src/dev.ts')],
     outdir: join(import.meta.dir, 'dist'),
     external: [...Object.keys(dependencies), 'vite'],
     target: 'bun'

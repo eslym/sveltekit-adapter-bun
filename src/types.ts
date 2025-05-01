@@ -29,6 +29,7 @@ export type WebSocketOptions = Pick<BunWSHandler, WebSocketOptionsKey>;
 
 export type DevServeOptions = Omit<BunServeOptions, 'fetch'> & {
     websocket?: WebSocketOptions;
+    hmrPort?: number;
 };
 
 export interface WebSocketHandler {
