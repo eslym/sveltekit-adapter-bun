@@ -17,6 +17,9 @@ bun add -d @eslym/sveltekit-adapter-bun
 
 ## Setup dev server
 
+> [!CAUTION]
+> This dev server is no longer work since bun v1.2.6, see https://github.com/eslym/sveltekit-adapter-bun/issues/3, but the production server will still function as expected.
+
 > [!NOTE]  
 > You do not need to do this if you are not using websocket in dev mode.
 
