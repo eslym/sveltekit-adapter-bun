@@ -40,6 +40,7 @@ export function mockNodeRequest(
     defineGetter(mockSocket, 'encrypted' as any, () => server.url.protocol === 'https:');
 
     const req = new IncomingMessage(mockSocket);
+    req.socket = mockSocket;
 
     const url = new URL(request.url);
 
