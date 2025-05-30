@@ -14,13 +14,15 @@ jobs:
       - uses: oven-sh/setup-bun@v1
 
       # run any `bun` or `bunx` command
-      - run: |
+      - id: build
+        run: |
           bun install 
           bun build.ts
+          bun tag.ts
       - uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm publish --access public
+      - run: npm publish --access public --tag ${{ steps.build.outputs.tag }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
