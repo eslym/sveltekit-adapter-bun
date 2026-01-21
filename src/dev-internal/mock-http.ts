@@ -2,6 +2,7 @@ import { IncomingMessage, ServerResponse, type OutgoingHttpHeaders } from 'http'
 import type { Socket } from 'net';
 import { Duplex, PassThrough, Readable } from 'stream';
 import type { Plugin } from 'vite';
+import type { WebSocketHandler } from '../types';
 
 const kReq = Symbol.for('::adapter-bun::request::');
 const kRes = Symbol.for('::adapter-bun::response::');
@@ -12,7 +13,7 @@ function defineGetter<T, K extends keyof T>(object: T, property: K, getter: () =
 
 export function mockNodeRequest(
     request: Request,
-    server: Bun.Server
+    server: Bun.Server<WebSocketHandler>
 ): {
     req: IncomingMessage;
     res: ServerResponse;
@@ -75,6 +76,16 @@ export function mockNodeRequest(
             }
         } else {
             headers.set(name, `${value}`);
+        }
+    };
+
+    (writable as any).appendHeader = (name: string, value: string | number | string[]) => {
+        if (Array.isArray(value)) {
+            for (const v of value) {
+                headers.append(name, v);
+            }
+        } else {
+            headers.append(name, `${value}`);
         }
     };
 

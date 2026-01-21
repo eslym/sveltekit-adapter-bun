@@ -8,7 +8,8 @@ const buildIndex = await Bun.build({
     entrypoints: [join(import.meta.dir, 'src/index.ts'), join(import.meta.dir, 'src/dev.ts')],
     outdir: join(import.meta.dir, 'dist'),
     external: [...Object.keys(dependencies), 'vite'],
-    target: 'bun'
+    target: 'bun',
+    sourcemap: 'external',
 });
 
 for (const log of buildIndex.logs) {

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { IncomingMessage, ServerResponse } from 'http';
-import type { Server, WebSocketHandler as BunWSHandler, WebSocketServeOptions } from 'bun';
+import type { Server, WebSocketHandler as BunWSHandler } from 'bun';
 import type { DevServeOptions, WebSocketHandler } from './types';
 import { symServer, symUpgrades } from './symbols';
 import type { ViteDevServer } from 'vite';
@@ -14,7 +14,9 @@ import { satisfies } from './dev-internal/version';
 import { mockedHttpPlugin, mockNodeRequest, patchMockHttp } from './dev-internal/mock-http';
 
 export async function patchSveltekit() {
-    console.log('Now patchSveltekit function uses Bun plugin instead of bun patch,\nyou can now safely remove all patches to @sveltejs/kit in package.json');
+    console.log(
+        'Now patchSveltekit function uses Bun plugin instead of bun patch,\nyou can now safely remove all patches to @sveltejs/kit in package.json'
+    );
     Bun.plugin({
         name: 'bun-patch-sveltekit',
         setup(build) {
@@ -36,7 +38,7 @@ export async function startDevServer({
     host = 'localhost',
     idleTimeout = 30,
     config,
-    websocket = {},
+    websocket = {} as any,
     hmrPort = undefined,
     ...serveOptions
 }: DevServeOptions & {
@@ -85,13 +87,11 @@ export async function startDevServer({
                 : {
                       port: hmrPort
                   },
-            middlewareMode: true
+            middlewareMode: true,
         },
         appType: 'custom',
         plugins: [satisfies('<1.2.5') ? bunternalPlugin : mockedHttpPlugin]
     });
-
-    vite.transformRequest;
 
     const hooks = await vite
         .ssrLoadModule('./src/hooks.server.ts')
@@ -106,7 +106,7 @@ export async function startDevServer({
         hostname: host,
         port,
         idleTimeout,
-        async fetch(request: Request, server: Server) {
+        async fetch(request: Request, server: Server<WebSocketHandler>) {
             const response = await getResponse(vite, request, server, mockServer);
 
             if (!response) return;
@@ -141,7 +141,7 @@ export async function startDevServer({
                 return ws.data.pong?.(ws, buffer);
             }
         } as BunWSHandler<WebSocketHandler>
-    } as WebSocketServeOptions<WebSocketHandler>);
+    } as any);
 
     (mockServer as any)[bunternal] = server;
 
@@ -155,7 +155,7 @@ export async function startDevServer({
 function legacyReqRes(
     vite: ViteDevServer,
     request: Request,
-    server: Server,
+    server: Server<WebSocketHandler>,
     mockServer: EventEmitter
 ) {
     let pendingResponse: Response | undefined;
@@ -199,7 +199,7 @@ function legacyReqRes(
     return promise;
 }
 
-function mockedReqRes(vite: ViteDevServer, request: Request, server: Server) {
+function mockedReqRes(vite: ViteDevServer, request: Request, server: Server<WebSocketHandler>) {
     const { req, res, promise, reject } = mockNodeRequest(request, server);
 
     vite.middlewares(req, res, (err: any) => {

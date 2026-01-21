@@ -3,12 +3,13 @@ import type { EventEmitter } from 'events';
 import type { ServerResponse } from 'http';
 import type { Plugin } from 'vite';
 import { satisfies } from './version';
+import type { WebSocketHandler } from '../types';
 
 export const bunternal = Symbol.for('::bunternal::');
 
 function setupBunternalOld(
     socket: any,
-    bunServer: Server,
+    bunServer: Server<WebSocketHandler>,
     httpServer: EventEmitter,
     httpRes: ServerResponse,
     bunReq: Request
@@ -18,7 +19,7 @@ function setupBunternalOld(
 
 function setupBunternalNew(
     socket: any,
-    _: Server,
+    _: Server<WebSocketHandler>,
     httpServer: EventEmitter,
     httpRes: ServerResponse,
     bunReq: Request

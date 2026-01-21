@@ -1,9 +1,11 @@
 import type {
-    WebSocketHandler as BunWSHandler,
+    WebSocketHandler as WSHandler,
     ServeOptions as BunServeOptions,
     ServerWebSocket
 } from 'bun';
 import type { Server } from 'bun';
+
+type BunWSHandler = WSHandler<WebSocketHandler>;
 
 export type CreateFetchOptions = {
     overrideOrigin?: string;
@@ -96,7 +98,7 @@ export interface AdapterPlatform {
     /**
      * The Bun server
      */
-    readonly bunServer: Server;
+    readonly bunServer: Server<WebSocketHandler>;
 
     /**
      * Mark a response for upgrade and return the response itself.
