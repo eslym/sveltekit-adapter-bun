@@ -71,7 +71,7 @@ function resolve_xff_ip(request: Request, depth: number) {
     return ips.at(-depth) || undefined;
 }
 
-export async function create_fetch({
+export function create_fetch({
     overrideOrigin,
     hostHeader,
     protocolHeader,
@@ -98,7 +98,7 @@ export async function create_fetch({
     if (SERVE_STATIC) {
         resolvers.push(serve_static);
     }
-    return (request: Request, srv: Server) => {
+    return (request: Request, srv: Bun.Server<unknown>) => {
         const request_ip = srv.requestIP(request)?.address;
         const try_get_ip = getIp ? () => getIp(request, request_ip) : () => request_ip;
         return first_resolve(request, [
