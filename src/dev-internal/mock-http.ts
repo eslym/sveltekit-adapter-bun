@@ -32,8 +32,10 @@ export function mockNodeRequest(
               }
           });
     const writable = new PassThrough();
+    writable.on('error', (err) => console.error('Writable stream error:', err));
 
     const mockSocket = Duplex.from({ readable, writable }) as any as Socket;
+    mockSocket.on('error', (err) => console.error('Mock socket error:', err));
 
     defineGetter(mockSocket, 'remoteAddress', () => remote.address);
     defineGetter(mockSocket, 'remotePort', () => remote.port);
@@ -65,7 +67,7 @@ export function mockNodeRequest(
 
     const { promise, resolve, reject } = Promise.withResolvers<Response>();
 
-    const headers = new Headers(request.headers);
+    const headers = new Headers();
     let headerSent = false;
 
     (writable as any).setHeader = (name: string, value: string | number | string[]) => {
