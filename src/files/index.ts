@@ -4,6 +4,7 @@ import type { WebSocketHandler } from '../types';
 import { create_fetch } from './handle';
 import type { WebSocketHandler as BunWSHandler } from 'bun';
 import { bool_env, bytes_env, duration_env, get_env, int_env } from './env';
+import { name } from '../../package.json';
 
 export const websocketHandler = {
     message(ws, message) {
@@ -69,6 +70,8 @@ export function serve() {
     } as any);
     console.log(`Serving on ${server.url}`);
 }
+
+(globalThis as any)[Symbol.for(`${name}::root`)] = import.meta.dirname;
 
 if (Bun.main === Bun.fileURLToPath(import.meta.url)) {
     serve();

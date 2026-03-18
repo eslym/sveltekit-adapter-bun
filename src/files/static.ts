@@ -1,7 +1,7 @@
 import { get_url } from './utils';
 import { normalize } from 'path/posix';
 import { assets, type ResolvedStatic } from 'ASSETS';
-import { duration_env, get_env } from './env';
+import { duration_env } from './env';
 
 const headersMap = ['last-modified', 'etag', 'content-length'];
 

@@ -1,7 +1,6 @@
 import type { AdapterPlatform, ServeOptions, WebSocketHandler } from '../types';
 import { get_url, set_url } from './utils';
 import { serve_static } from './static';
-import type { Server } from 'bun';
 import { server } from './server';
 
 type MaybePromise<T> = T | Promise<T>;

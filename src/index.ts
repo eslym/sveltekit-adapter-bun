@@ -262,6 +262,9 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                     };
                 }
             };
+        },
+        supports: {
+            read: () => true
         }
     };
 }
