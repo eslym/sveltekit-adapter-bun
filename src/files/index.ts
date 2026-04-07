@@ -5,6 +5,7 @@ import { create_fetch } from './handle';
 import type { WebSocketHandler as BunWSHandler } from 'bun';
 import { bool_env, bytes_env, duration_env, get_env, int_env } from './env';
 import { name } from '../../package.json';
+import { create_blocklist } from './trustedproxy';
 
 export const websocketHandler = {
     message(ws, message) {
@@ -61,7 +62,14 @@ export function serve() {
             hostHeader: get_env('HTTP_HOST_HEADER'),
             protocolHeader: get_env('HTTP_PROTOCOL_HEADER'),
             ipHeader: get_env('HTTP_IP_HEADER'),
-            xffDepth: int_env('HTTP_XFF_DEPTH', 1)
+            xffDepth: int_env('HTTP_XFF_DEPTH', 1),
+            trustedProxies: get_env('HTTP_TRUSTED_PROXIES')?.trim()
+                ? create_blocklist(
+                      get_env('HTTP_TRUSTED_PROXIES')!
+                          .split(',')
+                          .map((s) => s.trim())
+                  )
+                : undefined
         }),
         websocket: {
             ...websocketOptions(),

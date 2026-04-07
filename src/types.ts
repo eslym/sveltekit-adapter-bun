@@ -4,6 +4,7 @@ import type {
     ServerWebSocket
 } from 'bun';
 import type { Server } from 'bun';
+import type { BlockList } from 'node:net';
 
 type BunWSHandler = WSHandler<WebSocketHandler>;
 
@@ -13,6 +14,7 @@ export type CreateFetchOptions = {
     protocolHeader?: string;
     ipHeader?: string;
     xffDepth?: number;
+    trustedProxies?: BlockList;
 };
 
 export type ServeOptions = {

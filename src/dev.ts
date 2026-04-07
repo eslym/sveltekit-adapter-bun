@@ -49,8 +49,9 @@ export async function startDevServer({
     if (!('Bun' in globalThis)) {
         throw new Error('Please run with bun');
     }
-    if (satisfies('>=1.2.6') && !hmrPort) {
-        throw new Error('hmrPort must be specified when using Bun >= 1.2.6.');
+    if (satisfies('>=1.2.6') && typeof hmrPort !== 'number') {
+        // let vite pick one
+        hmrPort = 0;
     }
 
     if (!config) {

@@ -1,16 +1,15 @@
-import type { AdapterPlatform, ServeOptions, WebSocketHandler } from '../types';
+import type { AdapterPlatform, CreateFetchOptions, ServeOptions, WebSocketHandler } from '../types';
 import { get_url, set_url } from './utils';
 import { serve_static } from './static';
-import { server } from './server';
+import { get_server } from './server';
+import type { BlockList } from 'node:net';
 
 type MaybePromise<T> = T | Promise<T>;
 
-type FetchOptions = Pick<
-    ServeOptions,
-    'overrideOrigin' | 'hostHeader' | 'protocolHeader' | 'ipHeader' | 'xffDepth'
->;
-
-type Resolvers = ((args: { request: Request }) => MaybePromise<Response | undefined | void>)[];
+type Resolvers = ((args: {
+    request: Request;
+    ip: string | undefined;
+}) => MaybePromise<Response | undefined | void>)[];
 
 type GetIP = (request: Request, fallback: string | undefined) => string | undefined | null;
 
@@ -29,8 +28,8 @@ function clone_req(url: URL, request: Request) {
     });
 }
 
-async function first_resolve(request: Request, resolvers: Resolvers) {
-    const args = { request };
+async function first_resolve(request: Request, ip: string | undefined, resolvers: Resolvers) {
+    const args = { request, ip };
     for (let i = 0; i < resolvers.length; i++) {
         const _r = resolvers[i](args);
         const response = _r instanceof Promise ? await _r : _r;
@@ -70,13 +69,32 @@ function resolve_xff_ip(request: Request, depth: number) {
     return ips.at(-depth) || undefined;
 }
 
+function resolve_trusted_proxy_ip(
+    trustedProxies: BlockList,
+    request: Request,
+    fallback: string | undefined
+) {
+    return fallback && trustedProxies.check(fallback)
+        ? (resolve_xff_ip(request, 1) ?? fallback)
+        : fallback;
+}
+
+function override_origin_with_trusted_proxies(
+    trustedProxies: BlockList,
+    args: { request: Request; ip: string | undefined }
+) {
+    if (!args.ip || !trustedProxies.check(args.ip)) return;
+    override_origin_with_header('x-forwarded-host', 'x-forwarded-proto', args);
+}
+
 export function create_fetch({
     overrideOrigin,
     hostHeader,
     protocolHeader,
     ipHeader,
-    xffDepth
-}: FetchOptions) {
+    xffDepth,
+    trustedProxies
+}: CreateFetchOptions) {
     let getIp: GetIP | undefined = undefined;
     if (ipHeader === 'x-forwarded-for') {
         getIp = (req, fallback) => resolve_xff_ip(req, xffDepth!) ?? fallback;
@@ -93,6 +111,9 @@ export function create_fetch({
         resolvers.push(override_origin.bind(null, new URL(overrideOrigin)));
     } else if (hostHeader || protocolHeader) {
         resolvers.push(override_origin_with_header.bind(null, hostHeader, protocolHeader));
+    } else if (trustedProxies) {
+        getIp = resolve_trusted_proxy_ip.bind(null, trustedProxies);
+        resolvers.push(override_origin_with_trusted_proxies.bind(null, trustedProxies));
     }
     if (SERVE_STATIC) {
         resolvers.push(serve_static);
@@ -100,9 +121,10 @@ export function create_fetch({
     return (request: Request, srv: Bun.Server<unknown>) => {
         const request_ip = srv.requestIP(request)?.address;
         const try_get_ip = getIp ? () => getIp(request, request_ip) : () => request_ip;
-        return first_resolve(request, [
+        return first_resolve(request, request_ip, [
             ...resolvers,
             async (args) => {
+                const server = await get_server();
                 const res = await server.respond(args.request, {
                     getClientAddress() {
                         const ip = try_get_ip();
