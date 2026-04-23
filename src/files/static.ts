@@ -61,43 +61,46 @@ export async function serve_static({ request }: { request: Request }) {
     const headers = new Headers(
         data.headers.map((h, i) => [headersMap[i], h as string] as [string, string])
     );
-    const range = parse_range(request.headers);
     const file = data.file;
     headers.set('content-type', file.type);
-    if (range) {
-        const size = data.headers[2];
-        if (!range[0]) {
-            headers.set('content-range', `bytes */${size}`);
-            headers.set('content-length', '0');
-            return new Response(null, {
-                status: 416,
+    if (Bun.semver.satisfies(Bun.version, '< 1.3.13')) {
+        // Starting with Bun 1.3.13, Bun has built-in support for range requests.
+        const range = parse_range(request.headers);
+        if (range) {
+            const size = data.headers[2];
+            if (!range[0]) {
+                headers.set('content-range', `bytes */${size}`);
+                headers.set('content-length', '0');
+                return new Response(null, {
+                    status: 416,
+                    headers
+                });
+            }
+            const [_, rangeStart, rangeEnd] = range;
+            let startBytes = 0;
+            let endBytes = size;
+            if (rangeStart < 0) {
+                startBytes = size + rangeStart;
+            } else {
+                startBytes = rangeStart;
+                if (rangeEnd) endBytes = rangeEnd + 1;
+            }
+            if (endBytes <= startBytes || startBytes < 0 || endBytes > size) {
+                headers.set('content-range', `bytes */${size}`);
+                headers.set('content-length', '0');
+                return new Response(null, {
+                    status: 416,
+                    headers
+                });
+            }
+            headers.set('content-range', `bytes ${startBytes}-${endBytes - 1}/${size}`);
+            headers.set('content-length', `${endBytes - startBytes}`);
+            headers.set('accept-range', 'bytes');
+            return new Response(file.slice(startBytes, endBytes), {
+                status: 206,
                 headers
             });
         }
-        const [_, rangeStart, rangeEnd] = range;
-        let startBytes = 0;
-        let endBytes = size;
-        if (rangeStart < 0) {
-            startBytes = size + rangeStart;
-        } else {
-            startBytes = rangeStart;
-            if (rangeEnd) endBytes = rangeEnd + 1;
-        }
-        if (endBytes <= startBytes || startBytes < 0 || endBytes > size) {
-            headers.set('content-range', `bytes */${size}`);
-            headers.set('content-length', '0');
-            return new Response(null, {
-                status: 416,
-                headers
-            });
-        }
-        headers.set('content-range', `bytes ${startBytes}-${endBytes - 1}/${size}`);
-        headers.set('content-length', `${endBytes - startBytes}`);
-        headers.set('accept-range', 'bytes');
-        return new Response(file.slice(startBytes, endBytes), {
-            status: 206,
-            headers
-        });
     }
     headers.set('cache-control', data.immutable ? immutable_ttl : asset_ttl);
     if (
