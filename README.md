@@ -147,6 +147,18 @@ export type AdapterOptions = {
               syntax?: boolean;
               identifiers?: boolean;
           };
+
+    /**
+     * Expose the Bun version to the client via public env (`PUBLIC_BUN_VERSION`).
+     * @default false
+     */
+    exposeBunVersionToClient?: boolean;
+
+    /**
+     * Expose the Bun revision to the client via public env (`PUBLIC_BUN_REVISION`).
+     * @default false
+     */
+    exposeBunRevisionToClient?: boolean;
 };
 
 export type PreCompressOptions = {

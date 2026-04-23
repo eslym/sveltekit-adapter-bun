@@ -40,6 +40,8 @@ export async function startDevServer({
     config,
     websocket = {} as any,
     hmrPort = undefined,
+    exposeBunVersionToClient = false,
+    exposeBunRevisionToClient = false,
     ...serveOptions
 }: DevServeOptions & {
     port?: number;
@@ -49,6 +51,17 @@ export async function startDevServer({
     if (!('Bun' in globalThis)) {
         throw new Error('Please run with bun');
     }
+
+    if (exposeBunVersionToClient) {
+        process.env.PUBLIC_BUN_VERSION = Bun.version;
+        Bun.env.PUBLIC_BUN_VERSION = Bun.version;
+    }
+
+    if (exposeBunRevisionToClient) {
+        process.env.PUBLIC_BUN_REVISION = Bun.revision;
+        Bun.env.PUBLIC_BUN_REVISION = Bun.revision;
+    }
+
     if (satisfies('>=1.2.6') && typeof hmrPort !== 'number') {
         // let vite pick one
         hmrPort = 0;
@@ -88,7 +101,7 @@ export async function startDevServer({
                 : {
                       port: hmrPort
                   },
-            middlewareMode: true,
+            middlewareMode: true
         },
         appType: 'custom',
         plugins: [satisfies('<1.2.5') ? bunternalPlugin : mockedHttpPlugin]

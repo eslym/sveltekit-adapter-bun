@@ -40,6 +40,8 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
         bundler: 'rollup',
         sourceMap: true,
         bunBuildMinify: false,
+        exposeBunVersionToClient: false,
+        exposeBunRevisionToClient: false,
         ...userOpts
     };
     return {
@@ -178,7 +180,9 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                     SERVER: './server/index.js',
                     MANIFEST: './server/manifest.js',
                     ASSETS: './assets.js',
-                    SERVE_STATIC: opts.serveStatic ? 'true' : 'false'
+                    SERVE_STATIC: opts.serveStatic ? 'true' : 'false',
+                    EXPOSE_BUN_VERSION: opts.exposeBunVersionToClient ? 'true' : 'false',
+                    EXPOSE_BUN_REVISION: opts.exposeBunRevisionToClient ? 'true' : 'false'
                 }
             });
 
