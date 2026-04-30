@@ -54,9 +54,33 @@ export function websocketOptions() {
     };
 }
 
+export function tlsOptions() {
+    const cert = get_env('TLS_CERT_FILE');
+    const key = get_env('TLS_KEY_FILE');
+    if (!cert || !key) {
+        if (cert || key) {
+            console.warn(
+                '[adapter-bun] TLS_CERT_FILE and TLS_KEY_FILE must both be set. TLS disabled.'
+            );
+        }
+        return {};
+    }
+    const ca = get_env('TLS_CA_FILE');
+    const passphrase = get_env('TLS_PASSPHRASE');
+    return {
+        tls: {
+            cert: Bun.file(cert),
+            key: Bun.file(key),
+            ...(ca ? { ca: Bun.file(ca) } : {}),
+            ...(passphrase ? { passphrase } : {})
+        }
+    };
+}
+
 export function serve() {
     const server = Bun.serve({
         ...serveOptions(),
+        ...tlsOptions(),
         fetch: create_fetch({
             overrideOrigin: get_env('HTTP_OVERRIDE_ORIGIN'),
             hostHeader: get_env('HTTP_HOST_HEADER'),
