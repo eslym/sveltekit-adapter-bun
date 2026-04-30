@@ -18,7 +18,11 @@ type ENV_NAMES =
     | 'WS_MAX_PAYLOAD'
     | 'WS_NO_PING'
     | 'CACHE_ASSET_AGE'
-    | 'CACHE_IMMUTABLE_AGE';
+    | 'CACHE_IMMUTABLE_AGE'
+    | 'TLS_CERT_FILE'
+    | 'TLS_KEY_FILE'
+    | 'TLS_CA_FILE'
+    | 'TLS_PASSPHRASE';
 
 export function get_env(name: ENV_NAMES): string | undefined;
 export function get_env(name: ENV_NAMES, fallback: string): string;
