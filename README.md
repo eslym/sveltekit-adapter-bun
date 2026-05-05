@@ -193,6 +193,10 @@ export type PreCompressOptions = {
 | `HTTP_OVERRIDE_ORIGIN` | Force the request origin when it is unable to retrieve from the request                                   | -          |
 | `HTTP_IDLE_TIMEOUT`    | The request timeout for the server(in seconds)                                                            | `30`       |
 | `HTTP_MAX_BODY`        | The maximum body size for the request                                                                     | `128mib`   |
+| `TLS_CERT_FILE`        | Path to the TLS certificate file (PEM). Enables HTTPS when set alongside `TLS_KEY_FILE`                   | -          |
+| `TLS_KEY_FILE`         | Path to the TLS private key file (PEM). Required with `TLS_CERT_FILE` to enable HTTPS                     | -          |
+| `TLS_CA_FILE`          | Optional path to a CA bundle file (PEM)                                                                   | -          |
+| `TLS_PASSPHRASE`       | Optional passphrase for an encrypted `TLS_KEY_FILE`                                                       | -          |
 | `WS_IDLE_TIMEOUT`      | The websocket idle timeout (in seconds)                                                                   | `120`      |
 | `WS_MAX_PAYLOAD`       | The maximum payload size for the websocket                                                                | `16mib`    |
 | `WS_NO_PING`           | Disable automatic ping response                                                                           | `false`    |
