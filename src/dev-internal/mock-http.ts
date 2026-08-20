@@ -96,9 +96,6 @@ export function mockNodeRequest(
     };
 
     (writable as any).writeHead = (statusCode: number) => {
-        if (!headers.has('content-type')) {
-            headers.set('content-type', Bun.file(url.pathname).type);
-        }
         const body = Readable.toWeb(writable);
         const response = new Response(body as any, {
             status: statusCode,
