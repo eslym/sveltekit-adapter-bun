@@ -107,12 +107,6 @@ export async function startDevServer({
         plugins: [satisfies('<1.2.5') ? bunternalPlugin : mockedHttpPlugin]
     });
 
-    const hooks = await vite
-        .ssrLoadModule('./src/hooks.server.ts')
-        .catch(() => ({}) as Record<string, any>);
-
-    await hooks.beforeServe?.();
-
     const getResponse = satisfies('<1.2.6') ? legacyReqRes : mockedReqRes;
 
     const server = Bun.serve({
@@ -160,8 +154,6 @@ export async function startDevServer({
     (mockServer as any)[bunternal] = server;
 
     (globalThis as any)[symServer] = server;
-
-    await hooks.afterServe?.(server);
 
     console.log(`Serving on ${server.url}`);
 }
