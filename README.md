@@ -190,6 +190,7 @@ export type PreCompressOptions = {
 | `HTTP_OVERRIDE_ORIGIN` | Force the request origin when it is unable to retrieve from the request                                   | -          |
 | `HTTP_IDLE_TIMEOUT`    | The request timeout for the server(in seconds)                                                            | `30`       |
 | `HTTP_MAX_BODY`        | The maximum body size for the request                                                                     | `128mib`   |
+| `HTTP_2`              | Enable HTTP/2 (requires Bun version >= 1.14.1 and TLS enabled)                                                      | `false`    |
 | `TLS_CERT_FILE`        | Path to the TLS certificate file (PEM). Enables HTTPS when set alongside `TLS_KEY_FILE`                   | -          |
 | `TLS_KEY_FILE`         | Path to the TLS private key file (PEM). Required with `TLS_CERT_FILE` to enable HTTPS                     | -          |
 | `TLS_CA_FILE`          | Optional path to a CA bundle file (PEM)                                                                   | -          |
