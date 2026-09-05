@@ -14,6 +14,7 @@ type ENV_NAMES =
     | 'HTTP_TRUSTED_PROXIES'
     | 'HTTP_IDLE_TIMEOUT'
     | 'HTTP_MAX_BODY'
+    | 'HTTP_2'
     | 'WS_IDLE_TIMEOUT'
     | 'WS_MAX_PAYLOAD'
     | 'WS_NO_PING'

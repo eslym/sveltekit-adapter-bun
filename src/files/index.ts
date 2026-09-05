@@ -41,6 +41,7 @@ export function serveOptions() {
 
     return {
         ...serverOptions,
+        http2: bool_env('HTTP_2', false),
         idleTimeout: duration_env('HTTP_IDLE_TIMEOUT', 30),
         maxRequestBodySize: bytes_env('HTTP_MAX_BODY', 128 * 1024 * 1024)
     };
