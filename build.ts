@@ -1,13 +1,11 @@
 import { join } from 'path';
+import path from 'path/posix';
 
 await Bun.$`rm -rf ${join(import.meta.dir, 'dist')}`;
-
-import { dependencies } from './package.json';
 
 const buildIndex = await Bun.build({
     entrypoints: [join(import.meta.dir, 'src/index.ts'), join(import.meta.dir, 'src/dev.ts')],
     outdir: join(import.meta.dir, 'dist'),
-    external: [...Object.keys(dependencies), 'vite'],
     target: 'bun',
     sourcemap: 'external',
 });
@@ -27,7 +25,7 @@ for (const output of buildIndex.outputs) {
 const buildFiles = await Bun.build({
     entrypoints: [join(import.meta.dir, 'src/files/index.ts')],
     outdir: join(import.meta.dir, 'dist/files'),
-    external: ['SERVER', 'MANIFEST', 'ASSETS'],
+    external: ['SERVER', 'MANIFEST', 'ASSETS', path.resolve(join(import.meta.dir, 'src/entries/hooks.server.js'))],
     target: 'bun',
     splitting: true,
     naming: {

@@ -6,8 +6,6 @@ import type {
 import type { Server } from 'bun';
 import type { BlockList } from 'node:net';
 
-type BunWSHandler = WSHandler<WebSocketHandler>;
-
 export type CreateFetchOptions = {
     overrideOrigin?: string;
     hostHeader?: string;
@@ -23,16 +21,27 @@ export type ServeOptions = {
     unixSocket?: string;
 } & CreateFetchOptions;
 
-type WebSocketOptionsKey = {
-    [K in keyof BunWSHandler]-?: Exclude<BunWSHandler[K], undefined> extends (...args: any[]) => any
-        ? never
-        : K;
-}[keyof BunWSHandler];
+type StripNever<T> = {
+    [K in keyof T as T[K] extends never ? never : K]: T[K];
+};
 
-export type WebSocketOptions = Pick<BunWSHandler, WebSocketOptionsKey>;
+export type PureWebSocketOptions = Partial<
+    StripNever<
+        Omit<
+            {
+                [K in keyof WSHandler<any>]-?: Exclude<WSHandler<any>[K], undefined> extends (
+                    ...args: any[]
+                ) => any
+                    ? never
+                    : WSHandler<any>[K];
+            },
+            'data'
+        >
+    >
+>;
 
 export type DevServeOptions = Omit<BunServeOptions, 'fetch'> & {
-    websocket?: WebSocketOptions;
+    websocket?: PureWebSocketOptions;
     hmrPort?: number;
     exposeBunVersionToClient?: boolean;
     exposeBunRevisionToClient?: boolean;
@@ -125,6 +134,7 @@ export type AdapterOptions = {
 
     /**
      * The bundler for the final step build.
+     * Now use `import('vite').build` instead of using rollup directly.
      * @default 'rollup'
      */
     bundler?: 'rollup' | 'bun';
@@ -167,17 +177,17 @@ export type AdapterOptions = {
     sourceMap?: boolean | 'inline';
 
     /**
+     * Minify the output when using rollup build
+     * @default false
+     */
+    rollupMinify?: Exclude<import('vite').UserConfig['build'], undefined>['minify'];
+
+    /**
      * Minify the output when using bun build
      *
      * @default false
      */
-    bunBuildMinify?:
-        | boolean
-        | {
-              whitespace?: boolean;
-              syntax?: boolean;
-              identifiers?: boolean;
-          };
+    bunBuildMinify?: Bun.BuildConfig['minify'];
 
     /**
      * Expose the Bun version to the client via public env (`PUBLIC_BUN_VERSION`).
@@ -190,6 +200,13 @@ export type AdapterOptions = {
      * @default false
      */
     exposeBunRevisionToClient?: boolean;
+
+    /**
+     * Call the launch function exported from `hooks.server.js` instead of serve the application directly.
+     * @requires @sveltejs/kit >= 2.50.1
+     * @default false
+     */
+    customLaunch?: boolean;
 };
 
 export type PreCompressOptions = {
@@ -207,3 +224,19 @@ export type PreCompressOptions = {
      */
     files?: string[];
 };
+
+type Prettify<T> = {
+    [K in keyof T]: T[K];
+} & {};
+
+export interface LaunchParam {
+    serve: () => Promise<Bun.Server<WebSocketHandler>>;
+    createBunFetch: () => (
+        request: Request,
+        server: Bun.Server<WebSocketHandler>
+    ) => Promise<Response | undefined>;
+    createBunServer: () => Bun.Server<WebSocketHandler>;
+    websocketHandler: Prettify<
+        Required<Omit<WSHandler<WebSocketHandler>, keyof PureWebSocketOptions | 'data'>>
+    >;
+}

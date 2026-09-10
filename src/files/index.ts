@@ -1,13 +1,11 @@
-#!/usr/bin/env bun
-import './server';
 import type { WebSocketHandler } from '../types';
 import { create_fetch } from './handle';
 import type { WebSocketHandler as BunWSHandler } from 'bun';
 import { bool_env, bytes_env, duration_env, get_env, int_env } from './env';
-import { name } from '../../package.json';
 import { create_blocklist } from './trustedproxy';
+import { init_server } from './server';
 
-export const websocketHandler = {
+const websocketHandler = {
     message(ws, message) {
         return ws.data.message(ws, message);
     },
@@ -28,7 +26,7 @@ export const websocketHandler = {
     }
 } as BunWSHandler<WebSocketHandler>;
 
-export function serveOptions() {
+function serveOptions() {
     const socket = get_env('HTTP_SOCKET');
     const serverOptions = socket
         ? {
@@ -47,7 +45,7 @@ export function serveOptions() {
     };
 }
 
-export function websocketOptions() {
+function websocketOptions() {
     return {
         idleTimeout: duration_env('WS_IDLE_TIMEOUT', 120),
         maxPayloadLength: bytes_env('WS_MAX_PAYLOAD', 16 * 1024 * 1024),
@@ -55,7 +53,7 @@ export function websocketOptions() {
     };
 }
 
-export function tlsOptions() {
+function tlsOptions() {
     const cert = get_env('TLS_CERT_FILE');
     const key = get_env('TLS_KEY_FILE');
     if (!cert || !key) {
@@ -78,8 +76,8 @@ export function tlsOptions() {
     };
 }
 
-export function serve() {
-    const server = Bun.serve({
+function createBunServer() {
+    return Bun.serve({
         ...serveOptions(),
         ...tlsOptions(),
         fetch: create_fetch({
@@ -101,13 +99,29 @@ export function serve() {
             ...websocketHandler
         }
     } as any);
+}
+
+async function serve() {
+    await init_server(import.meta.dirname);
+    const server = createBunServer();
     console.log(`Serving on ${server.url}`);
+    return server;
 }
 
-(globalThis as any)[Symbol.for(`${name}::root`)] = import.meta.dirname;
+export const main = CUSTOM_LAUNCH
+    ? async () => {
+          await init_server(import.meta.dirname);
+          //@ts-expect-error
+          const { launch } = await import('../entries/hooks.server.js');
+          await launch({ serve, createBunServer, createBunFetch: create_fetch, websocketHandler });
+      }
+    : serve;
 
-if (Bun.main === Bun.fileURLToPath(import.meta.url)) {
-    serve();
+if (EXPOSE_BUN_VERSION) {
+    process.env.PUBLIC_BUN_VERSION = Bun.version;
+    Bun.env.PUBLIC_BUN_VERSION = Bun.version;
 }
-
-export { create_fetch as createBunFetch };
+if (EXPOSE_BUN_REVISION) {
+    process.env.PUBLIC_BUN_REVISION = Bun.revision;
+    Bun.env.PUBLIC_BUN_REVISION = Bun.revision;
+}

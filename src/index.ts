@@ -18,15 +18,11 @@ import {
     writeFileSync
 } from 'fs';
 import { pipeline } from 'stream/promises';
-import { rollup } from 'rollup';
-import { nodeResolve } from '@rollup/plugin-node-resolve';
-import commonjs from '@rollup/plugin-commonjs';
-import json from '@rollup/plugin-json';
 import { uneval } from 'devalue';
 import { symServer, symUpgrades } from './symbols';
 import { build_assets_js } from './build-assets';
-
-const assets_module = 'sveltekit-adapter-bun:assets';
+import { import_peer } from './utils';
+import path from 'path/posix';
 
 const files = fileURLToPath(new URL('./files', import.meta.url));
 
@@ -39,9 +35,11 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
         staticIgnores: ['**/.*'],
         bundler: 'rollup',
         sourceMap: true,
+        rollupMinify: false,
         bunBuildMinify: false,
         exposeBunVersionToClient: false,
         exposeBunRevisionToClient: false,
+        customLaunch: false,
         ...userOpts
     };
     return {
@@ -65,6 +63,8 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                     );
                 }
             }
+
+            const { build } = await import_peer<typeof import('vite')>('vite');
 
             const tmp = builder.getBuildDirectory(adapterName);
 
@@ -102,47 +102,66 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
 
             builder.log.minor('Bundling...');
 
-            if (opts.bundler === 'rollup') {
+            builder.copy(files, `${tmp}/adapter`, {
+                replace: {
+                    SERVER: '../index.js',
+                    CUSTOM_LAUNCH: opts.customLaunch ? 'true' : 'false',
+                    MANIFEST: '../manifest.js',
+                    ASSETS: '../assets.js',
+                    SERVE_STATIC: opts.serveStatic ? 'true' : 'false',
+                    EXPOSE_BUN_VERSION: opts.exposeBunVersionToClient ? 'true' : 'false',
+                    EXPOSE_BUN_REVISION: opts.exposeBunRevisionToClient ? 'true' : 'false'
+                }
+            });
+
+            if (opts.bundler !== 'bun') {
                 // we bundle the Vite output so that deployments only need
                 // their production dependencies. Anything in devDependencies
                 // will get included in the bundled code
-                const bundle = await rollup({
-                    input: {
-                        index: `${tmp}/index.js`,
-                        manifest: `${tmp}/manifest.js`
-                    },
-                    external: [
-                        assets_module,
-                        // dependencies could have deep exports, so we need a regex
-                        ...Object.keys(pkg.dependencies || {}).map(
-                            (d) => new RegExp(`^${d}(\\/.*)?$`)
-                        )
-                    ],
+                await build({
+                    configFile: false,
                     plugins: [
-                        nodeResolve({
-                            preferBuiltins: true,
-                            exportConditions: ['node']
-                        }),
-                        // @ts-ignore https://github.com/rollup/plugins/issues/1329
-                        commonjs({ strictRequires: true }),
-                        // @ts-ignore https://github.com/rollup/plugins/issues/1329
-                        json()
+                        {
+                            name: 'ignore-assets-js',
+                            resolveId(source, importer) {
+                                builder.log.info(`Resolving import: ${source} from ${importer}`);
+                                // Match the exact relative path you want Vite to ignore
+                                if (
+                                    source === `../assets.js` &&
+                                    importer === `${tmp}/adapter/index.js`
+                                ) {
+                                    return { id: source, external: true };
+                                }
+                                return null; // Let Vite handle everything else normally
+                            }
+                        }
                     ],
-                    onLog(level, log) {
-                        builder.log[level === 'debug' ? 'minor' : level](log.message);
+                    build: {
+                        outDir: `${out}/server`,
+                        ssr: true,
+                        sourcemap: opts.sourceMap,
+                        minify: opts.rollupMinify,
+                        rollupOptions: {
+                            input: {
+                                index: `${tmp}/adapter/index.js`,
+                                manifest: `${tmp}/manifest.js`
+                            },
+                            external: [
+                                // dependencies could have deep exports, so we need a regex
+                                ...Object.keys(pkg.dependencies || {}).map(
+                                    (d) => new RegExp(`^${d}(\\/.*)?$`)
+                                )
+                            ],
+                            onLog(level, log) {
+                                builder.log[level === 'debug' ? 'minor' : level](log.message);
+                            }
+                        }
                     }
-                });
-
-                await bundle.write({
-                    dir: `${out}/server`,
-                    format: 'esm',
-                    sourcemap: opts.sourceMap,
-                    chunkFileNames: 'chunks/[name]-[hash].js'
                 });
             } else {
                 const res = await Bun.build({
                     target: 'bun',
-                    entrypoints: [`${tmp}/index.js`, `${tmp}/manifest.js`],
+                    entrypoints: [`${tmp}/adapter/index.js`, `${tmp}/manifest.js`],
                     outdir: `${out}/server`,
                     sourcemap:
                         opts.sourceMap === true ? 'linked' : opts.sourceMap ? 'inline' : 'none',
@@ -150,7 +169,10 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                         entry: '[name].[ext]',
                         chunk: 'chunks/[name]-[hash].[ext]'
                     },
-                    external: [assets_module, ...Object.keys(pkg.dependencies || {})],
+                    external: [
+                        path.resolve(`${tmp}/assets.js`),
+                        ...Object.keys(pkg.dependencies || {})
+                    ],
                     splitting: true,
                     format: 'esm',
                     minify: opts.bunBuildMinify
@@ -175,17 +197,6 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                 }
             }
 
-            builder.copy(files, out, {
-                replace: {
-                    SERVER: './server/index.js',
-                    MANIFEST: './server/manifest.js',
-                    ASSETS: './assets.js',
-                    SERVE_STATIC: opts.serveStatic ? 'true' : 'false',
-                    EXPOSE_BUN_VERSION: opts.exposeBunVersionToClient ? 'true' : 'false',
-                    EXPOSE_BUN_REVISION: opts.exposeBunRevisionToClient ? 'true' : 'false'
-                }
-            });
-
             const immutable = `${builder.config.kit.appDir}/immutable/`.replace(/^\/?/, '/');
 
             const staticIgnores = opts.staticIgnores.map((p) => new Bun.Glob(p));
@@ -208,6 +219,10 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                 : '// @bun\nexport const assets = new Map();';
 
             await Bun.write(`${out}/assets.js`, assets_js);
+            await Bun.write(
+                `${out}/index.js`,
+                "#!/usr/bin/env bun\n// @bun\nimport {main} from './server/index.js';\nmain();"
+            );
 
             if ('patchedDependencies' in pkg) {
                 const deps = Object.keys(pkg.devDependencies || {});
@@ -248,13 +263,13 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
                         },
                         get bunServer() {
                             if (!(symServer in globalThis)) {
-                                throw Error('Not supported in dev mode');
+                                throw Error('Dev Bun http server not found');
                             }
                             return (globalThis as any)[symServer];
                         },
                         markForUpgrade(res, ws) {
                             if (!(symUpgrades in globalThis)) {
-                                throw Error('Not supported in dev mode');
+                                throw Error('Dev Bun http server not found');
                             }
                             const upgrades = (globalThis as any)[symUpgrades] as WeakMap<
                                 Response,
@@ -356,3 +371,4 @@ async function compress_file(file: string, format: 'gz' | 'br' = 'gz') {
 }
 
 export { type AdapterOptions, type AdapterPlatform };
+export type { LaunchParam } from './types';

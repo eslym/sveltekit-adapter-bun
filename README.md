@@ -190,7 +190,7 @@ export type PreCompressOptions = {
 | `HTTP_OVERRIDE_ORIGIN` | Force the request origin when it is unable to retrieve from the request                                   | -          |
 | `HTTP_IDLE_TIMEOUT`    | The request timeout for the server(in seconds)                                                            | `30`       |
 | `HTTP_MAX_BODY`        | The maximum body size for the request                                                                     | `128mib`   |
-| `HTTP_2`              | Enable HTTP/2 (requires Bun version >= 1.14.1 and TLS enabled)                                                      | `false`    |
+| `HTTP_2`               | Enable HTTP/2 (requires Bun version >= 1.14.1 and TLS enabled)                                            | `false`    |
 | `TLS_CERT_FILE`        | Path to the TLS certificate file (PEM). Enables HTTPS when set alongside `TLS_KEY_FILE`                   | -          |
 | `TLS_KEY_FILE`         | Path to the TLS private key file (PEM). Required with `TLS_CERT_FILE` to enable HTTPS                     | -          |
 | `TLS_CA_FILE`          | Optional path to a CA bundle file (PEM)                                                                   | -          |
@@ -200,3 +200,30 @@ export type PreCompressOptions = {
 | `WS_NO_PING`           | Disable automatic ping response                                                                           | `false`    |
 | `CACHE_ASSET_AGE`      | The max-age for the cache-control header for the assets                                                   | `14400`    |
 | `CACHE_IMMUTABLE_AGE`  | The max-age for the cache-control header for the immutable assets                                         | `31536000` |
+
+## Experimental Features
+
+### Custom Launch
+
+This feature allows you to enable custom launch behavior for the server, giving you more control over the final build.
+
+To enable this feature, set the `customLaunch` option to `true` in the adapter configuration and export `launch` function from `hooks.server.js`.
+
+```js
+// hooks.server.js
+import type { LaunchParam } from '@eslym/sveltekit-adapter-bun';
+
+export function launch({ serve }: LaunchParam) {
+    if (Bun.argv.includes('--serve')) {
+        const server = serve();
+
+        return;
+    }
+    // ...you may do other cli handling here
+}
+```
+
+> [!IMPORTANT]
+>
+> 1. This feature requires `@sveltejs/kit >= 2.50.1` which allows adapter to import `hooks.server.js` directly.
+> 2. `init` in `hooks.server.js` will still run before the `launch` function because SvelteKit runs it when initializing environment variables.

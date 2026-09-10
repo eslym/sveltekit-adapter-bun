@@ -12,6 +12,7 @@ import {
 } from './dev-internal/bunternal';
 import { satisfies } from './dev-internal/version';
 import { mockedHttpPlugin, mockNodeRequest, patchMockHttp } from './dev-internal/mock-http';
+import { import_peer } from './utils';
 
 export async function patchSveltekit() {
     console.log(
@@ -62,11 +63,6 @@ export async function startDevServer({
         Bun.env.PUBLIC_BUN_REVISION = Bun.revision;
     }
 
-    if (satisfies('>=1.2.6') && typeof hmrPort !== 'number') {
-        // let vite pick one
-        hmrPort = 0;
-    }
-
     if (!config) {
         for (const cfg of [
             'vite.config.ts',
@@ -83,7 +79,7 @@ export async function startDevServer({
     if (!config) {
         throw new Error('No config file found.');
     }
-    const { createServer } = await import('vite');
+    const { createServer } = await import_peer<typeof import('vite')>('vite');
 
     const upgrades = new WeakMap<Response, WebSocketHandler>();
 
@@ -99,7 +95,7 @@ export async function startDevServer({
                       server: mockServer as any
                   }
                 : {
-                      port: hmrPort
+                      port: hmrPort ?? 0
                   },
             middlewareMode: true
         },
