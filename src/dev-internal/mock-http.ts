@@ -32,7 +32,11 @@ export function mockNodeRequest(
               }
           });
     const writable = new PassThrough();
-    writable.on('error', (err) => console.error('Writable stream error:', err));
+    
+    writable.on('error', (err) => {
+        if (Error.isError(err) && (err as any).code === 'ABORT_ERR') return;
+        console.error('Writable stream error:', err);
+    });
 
     const mockSocket = Duplex.from({ readable, writable } as any) as any as Socket;
     mockSocket.on('error', (err) => {
