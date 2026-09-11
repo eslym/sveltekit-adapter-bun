@@ -19,10 +19,11 @@ import {
 } from 'fs';
 import { pipeline } from 'stream/promises';
 import { uneval } from 'devalue';
-import { symServer, symUpgrades } from './symbols';
+import { symServer, symUpgraded, symUpgrades } from './symbols';
 import { build_assets_js } from './build-assets';
 import { import_peer } from './utils';
 import path from 'path/posix';
+import { devContext, devContextHeader } from './dev-internal/context';
 
 const files = fileURLToPath(new URL('./files', import.meta.url));
 
@@ -256,20 +257,42 @@ export default function adapter(userOpts: AdapterOptions = {}): Adapter {
         },
         emulate() {
             return {
-                platform(): AdapterPlatform {
+                platform({ request }: any): AdapterPlatform {
+                    console.log(devContext);
+                    const context: {
+                        request: Request;
+                        server: Bun.Server<WebSocketHandler>;
+                    } = request
+                        ? devContext.get(request.headers.get(devContextHeader)!)
+                        : (undefined as any);
+                    const bunServer = request ? context.server : (globalThis as any)[symServer];
                     return {
                         get originalRequest(): Request {
-                            throw Error('Not supported in dev mode');
+                            if (request) {
+                                return context.request;
+                            }
+                            throw Error('Failed to emulate platform.originalRequest');
                         },
                         get bunServer() {
-                            if (!(symServer in globalThis)) {
-                                throw Error('Dev Bun http server not found');
+                            if (bunServer) {
+                                return bunServer;
                             }
-                            return (globalThis as any)[symServer];
+                            throw Error('Failed to emulate platform.bunServer');
+                        },
+                        upgrade(ws, headers = undefined) {
+                            if (request) {
+                                const upgraded = context.server.upgrade(request, {
+                                    data: ws,
+                                    headers
+                                });
+                                (request as any)[symUpgraded] = upgraded;
+                                return upgraded;
+                            }
+                            throw Error('Failed to emulate platform.upgrade');
                         },
                         markForUpgrade(res, ws) {
-                            if (!(symUpgrades in globalThis)) {
-                                throw Error('Dev Bun http server not found');
+                            if (!bunServer) {
+                                throw Error('Failed to emulate platform.markForUpgrade');
                             }
                             const upgrades = (globalThis as any)[symUpgrades] as WeakMap<
                                 Response,

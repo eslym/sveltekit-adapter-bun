@@ -13,6 +13,8 @@ type Resolvers = ((args: {
 
 type GetIP = (request: Request, fallback: string | undefined) => string | undefined | null;
 
+const symUpgraded = Symbol('request upgraded');
+
 function clone_req(url: URL, request: Request) {
     return new Request(url, {
         method: request.method,
@@ -121,6 +123,11 @@ export function create_fetch({
     return (request: Request, srv: Bun.Server<unknown>) => {
         const request_ip = srv.requestIP(request)?.address;
         const try_get_ip = getIp ? () => getIp(request, request_ip) : () => request_ip;
+        function upgrade(ws: WebSocketHandler, headers?: HeadersInit) {
+            const upgraded = srv.upgrade(request, { data: ws, headers });
+            if (upgraded) (request as any)[symUpgraded] = true;
+            return upgraded;
+        }
         return first_resolve(request, request_ip, [
             ...resolvers,
             async (args) => {
@@ -138,11 +145,15 @@ export function create_fetch({
                         get bunServer() {
                             return srv;
                         },
+                        get upgrade() {
+                            return upgrade;
+                        },
                         get markForUpgrade() {
                             return markUpgrade;
                         }
                     } as AdapterPlatform
                 });
+                if ((request as any)[symUpgraded]) return undefined;
                 if (
                     upgrades.has(res) &&
                     srv.upgrade(request, { headers: res.headers, data: upgrades.get(res) })

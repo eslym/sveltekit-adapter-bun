@@ -76,8 +76,8 @@ function tlsOptions() {
     };
 }
 
-function createBunServer() {
-    return Bun.serve({
+function createBunOptions() {
+    return {
         ...serveOptions(),
         ...tlsOptions(),
         fetch: create_fetch({
@@ -98,12 +98,11 @@ function createBunServer() {
             ...websocketOptions(),
             ...websocketHandler
         }
-    } as any);
+    } as any;
 }
 
-async function serve() {
-    await init_server(import.meta.dirname);
-    const server = createBunServer();
+function serve() {
+    const server = Bun.serve(createBunOptions());
     console.log(`Serving on ${server.url}`);
     return server;
 }
@@ -113,9 +112,12 @@ export const main = CUSTOM_LAUNCH
           await init_server(import.meta.dirname);
           //@ts-expect-error
           const { launch } = await import('../entries/hooks.server.js');
-          await launch({ serve, createBunServer, createBunFetch: create_fetch, websocketHandler });
+          await launch({ serve, createBunOptions, createBunFetch: create_fetch, websocketHandler });
       }
-    : serve;
+    : async () => {
+          await init_server(import.meta.dirname);
+          serve();
+      };
 
 if (EXPOSE_BUN_VERSION) {
     process.env.PUBLIC_BUN_VERSION = Bun.version;

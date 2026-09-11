@@ -114,6 +114,16 @@ export interface AdapterPlatform {
     readonly bunServer: Server<WebSocketHandler>;
 
     /**
+     * Upgrade a request like what Bun.Server.upgrade does, returning true if the upgrade was
+     * successful. Unlike the old `markForUpgrade`, you will need to return a dummy response
+     * because sveltekit route requires it, but the adapter will return undefined for you.
+     * 
+     * @param ws the websocket handler
+     * @param headers headers to respond with during the upgrade
+     */
+    upgrade(ws: WebSocketHandler, headers?: HeadersInit): boolean;
+
+    /**
      * Mark a response for upgrade and return the response itself.
      *
      * When a response is marked for upgrade, the server will try to upgrade the request,
@@ -121,6 +131,8 @@ export interface AdapterPlatform {
      *
      * @param response The response to mark
      * @param ws The websocket handler
+     * 
+     * @deprecated Use the `upgrade` method instead.
      */
     markForUpgrade(response: Response, ws: WebSocketHandler): Response;
 }
@@ -230,12 +242,12 @@ type Prettify<T> = {
 } & {};
 
 export interface LaunchParam {
-    serve: () => Promise<Bun.Server<WebSocketHandler>>;
+    serve: () => Bun.Server<WebSocketHandler>;
+    createServeOptions: () => Bun.ServeOptions<WebSocketHandler>;
     createBunFetch: () => (
         request: Request,
         server: Bun.Server<WebSocketHandler>
     ) => Promise<Response | undefined>;
-    createBunServer: () => Bun.Server<WebSocketHandler>;
     websocketHandler: Prettify<
         Required<Omit<WSHandler<WebSocketHandler>, keyof PureWebSocketOptions | 'data'>>
     >;

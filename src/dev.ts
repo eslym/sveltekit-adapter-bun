@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import { IncomingMessage, ServerResponse } from 'http';
 import type { Server, WebSocketHandler as BunWSHandler } from 'bun';
 import type { DevServeOptions, WebSocketHandler } from './types';
-import { symServer, symUpgrades } from './symbols';
+import { symServer, symUpgraded, symUpgrades } from './symbols';
 import type { ViteDevServer } from 'vite';
 import {
     bunternal,
@@ -13,6 +13,7 @@ import {
 import { satisfies } from './dev-internal/version';
 import { mockedHttpPlugin, mockNodeRequest, patchMockHttp } from './dev-internal/mock-http';
 import { import_peer } from './utils';
+import { devContext, devContextHeader, patchPlatform } from './dev-internal/context';
 
 export async function patchSveltekit() {
     console.log(
@@ -100,7 +101,7 @@ export async function startDevServer({
             middlewareMode: true
         },
         appType: 'custom',
-        plugins: [satisfies('<1.2.5') ? bunternalPlugin : mockedHttpPlugin]
+        plugins: [satisfies('<1.2.5') ? bunternalPlugin : mockedHttpPlugin, patchPlatform]
     });
 
     const getResponse = satisfies('<1.2.6') ? legacyReqRes : mockedReqRes;
@@ -111,9 +112,20 @@ export async function startDevServer({
         port,
         idleTimeout,
         async fetch(request: Request, server: Server<WebSocketHandler>) {
+            const id = crypto.randomUUID();
+            
+            request.headers.set(devContextHeader, id);
+            devContext.set(id, {
+                request,
+                server
+            });
+
             const response = await getResponse(vite, request, server, mockServer);
+            devContext.delete(id);
 
             if (!response) return;
+
+            if ((request as any)[symUpgraded]) return;
 
             if (upgrades.has(response)) {
                 const ws = upgrades.get(response)!;

@@ -66,16 +66,22 @@ declare global {
 
 export async function GET({ platform }) {
     // can mark any response for upgrade, if the upgrade failed, the response will be sent as is
-    return platform!.markForUpgrade(
-        new Response('Websocket Requried', {
-            status: 400
-        }),
+    const upgraded = platform!.upgrade({
+        message(ws, message) {
+            ws.send(message);
+        },
+        // optional headers which returned as part of the upgrade response
         {
-            message(ws, message) {
-                ws.send(message);
-            }
+            'X-Request-Id': crypto.randomUUID()
         }
-    );
+    });
+    if (upgraded) {
+        // return a dummy response for sveltekit when the upgrade is successful
+        return new Response();
+    }
+    return new Response('Websocket Requried', {
+        status: 400
+    });
 }
 ```
 
@@ -91,6 +97,7 @@ export type AdapterOptions = {
 
     /**
      * The bundler for the final step build.
+     * Now use `import('vite').build` instead of using rollup directly.
      * @default 'rollup'
      */
     bundler?: 'rollup' | 'bun';
@@ -133,17 +140,17 @@ export type AdapterOptions = {
     sourceMap?: boolean | 'inline';
 
     /**
+     * Minify the output when using rollup build
+     * @default false
+     */
+    rollupMinify?: Exclude<import('vite').UserConfig['build'], undefined>['minify'];
+
+    /**
      * Minify the output when using bun build
      *
      * @default false
      */
-    bunBuildMinify?:
-        | boolean
-        | {
-              whitespace?: boolean;
-              syntax?: boolean;
-              identifiers?: boolean;
-          };
+    bunBuildMinify?: Bun.BuildConfig['minify'];
 
     /**
      * Expose the Bun version to the client via public env (`PUBLIC_BUN_VERSION`).
@@ -156,6 +163,13 @@ export type AdapterOptions = {
      * @default false
      */
     exposeBunRevisionToClient?: boolean;
+
+    /**
+     * Call the launch function exported from `hooks.server.js` instead of serve the application directly.
+     * @requires @sveltejs/kit >= 2.50.1
+     * @default false
+     */
+    customLaunch?: boolean;
 };
 
 export type PreCompressOptions = {
