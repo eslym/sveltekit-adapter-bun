@@ -35,7 +35,10 @@ export function mockNodeRequest(
     writable.on('error', (err) => console.error('Writable stream error:', err));
 
     const mockSocket = Duplex.from({ readable, writable } as any) as any as Socket;
-    mockSocket.on('error', (err) => console.error('Mock socket error:', err));
+    mockSocket.on('error', (err) => {
+        if (Error.isError(err) && (err as any).code === 'ABORT_ERR') return;
+        console.error('Mock socket error:', err);
+    });
 
     defineGetter(mockSocket, 'remoteAddress', () => remote.address);
     defineGetter(mockSocket, 'remotePort', () => remote.port);
