@@ -1,12 +1,12 @@
 declare module 'SERVER' {
-    import { CAC } from 'cac';
-    import { Server as BunServer } from 'bun';
-    export { Server, MaybePromise } from '@sveltejs/kit';
-}
+    import type { Server } from '@sveltejs/kit';
 
-declare module 'MANIFEST' {
-    import { SSRManifest, type MaybePromise } from '@sveltejs/kit';
-    export const manifest: SSRManifest;
+    /**
+     * The already constructed sveltekit server. On sveltekit 3 this module is
+     * written by `builder.generateServerInstance`, on sveltekit 2 the adapter
+     * writes an equivalent module itself.
+     */
+    export const server: Server;
 }
 
 declare module 'ASSETS' {

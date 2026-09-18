@@ -55,3 +55,36 @@ export async function import_peer<T>(dependency: string): Promise<T> {
 		return await import(/* @vite-ignore */ dependency);
 	}
 }
+
+/**
+ * Read the version of an installed peer dependency, resolved the same way as
+ * `resolve_peer`. Returns `undefined` when the package is not installed.
+ * @param {string} name
+ */
+export function peer_version(name: string): string | undefined {
+	let dir = process.cwd();
+
+	while (!fs.existsSync(`${dir}/node_modules/${name}/package.json`)) {
+		if (dir === (dir = path.dirname(dir))) {
+			return undefined;
+		}
+	}
+
+	try {
+		return JSON.parse(fs.readFileSync(`${dir}/node_modules/${name}/package.json`, 'utf-8'))
+			.version;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * The major version of the installed `@sveltejs/kit`, or `undefined` when it
+ * cannot be determined.
+ */
+export function kit_major(): number | undefined {
+	const version = peer_version('@sveltejs/kit');
+	if (!version) return undefined;
+	const major = parseInt(version, 10);
+	return isNaN(major) ? undefined : major;
+}

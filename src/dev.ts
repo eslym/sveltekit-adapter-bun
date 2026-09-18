@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events';
 import { IncomingMessage, ServerResponse } from 'http';
 import type { Server, WebSocketHandler as BunWSHandler } from 'bun';
-import type { DevServeOptions, WebSocketHandler } from './types';
+import type { AdapterViteConfig, DevServeOptions, WebSocketHandler } from './types';
 import { symServer, symUpgraded, symUpgrades } from './symbols';
-import type { ViteDevServer } from 'vite';
+import type { Plugin, ViteDevServer } from 'vite';
 import {
     bunternal,
     bunternalPlugin,
@@ -11,11 +11,48 @@ import {
     setupBunternal
 } from './dev-internal/bunternal';
 import { satisfies } from './dev-internal/version';
-import { mockedHttpPlugin, mockNodeRequest, patchMockHttp } from './dev-internal/mock-http';
-import { import_peer } from './utils';
-import { devContext, devContextHeader, patchPlatform } from './dev-internal/context';
+import {
+    kReq,
+    kRes,
+    mockedHttpPlugin,
+    mockNodeRequest,
+    patchMockHttp
+} from './dev-internal/mock-http';
+import { import_peer, kit_major } from './utils';
+import { devBridge } from './dev-internal/context';
+
+type KitNode = typeof import('@sveltejs/kit/node');
+
+/**
+ * Sveltekit 3 lets the adapter replace `getRequest` and `setResponse` through
+ * `Adapter.vite`, so bun's own `Request` and `Response` can be handed over
+ * without patching `@sveltejs/kit/node` at load time.
+ */
+function createViteHooks(kit: KitNode): AdapterViteConfig {
+    return {
+        getRequest(opts) {
+            const original = (opts.request as any)[kReq] as Request | undefined;
+            if (original) return original;
+            return kit.getRequest(opts as any);
+        },
+        setResponse(res, response) {
+            const resolve = (res as any)[kRes] as ((response: Response) => void) | undefined;
+            if (resolve) {
+                resolve(response);
+                return;
+            }
+            return kit.setResponse(res, response);
+        }
+    };
+}
 
 export async function patchSveltekit() {
+    if ((kit_major() ?? 2) >= 3) {
+        console.log(
+            "patchSveltekit is a no-op on sveltekit 3 — the adapter now hands bun's Request to sveltekit through `Adapter.vite`.\nYou can remove the call from your dev entrypoint."
+        );
+        return;
+    }
     console.log(
         'Now patchSveltekit function uses Bun plugin instead of bun patch,\nyou can now safely remove all patches to @sveltejs/kit in package.json'
     );
@@ -64,13 +101,18 @@ export async function startDevServer({
         Bun.env.PUBLIC_BUN_REVISION = Bun.revision;
     }
 
+    // matches vite's own candidate list; on sveltekit 3 this is the only place
+    // the adapter can be configured, so failing to find it is fatal
+    const candidates = [
+        'vite.config.ts',
+        'vite.config.js',
+        'vite.config.mjs',
+        'vite.config.mts',
+        'vite.config.cjs',
+        'vite.config.cts'
+    ];
     if (!config) {
-        for (const cfg of [
-            'vite.config.ts',
-            'vite.config.js',
-            'vite.config.cjs',
-            'vite.config.mjs'
-        ]) {
+        for (const cfg of candidates) {
             if (Bun.file(cfg).size) {
                 config = cfg;
                 break;
@@ -78,8 +120,25 @@ export async function startDevServer({
         }
     }
     if (!config) {
-        throw new Error('No config file found.');
+        throw new Error(
+            `No vite config file found in ${process.cwd()}, looked for: ${candidates.join(', ')}.`
+        );
     }
+
+    const kit = kit_major() ?? 2;
+    const bridge = devBridge();
+
+    if (kit >= 3) {
+        if (satisfies('<1.2.6')) {
+            throw new Error(
+                `Bun v${Bun.version} is too old for the sveltekit 3 dev server, please use bun >= 1.2.6.`
+            );
+        }
+        // has to be registered before the vite config is evaluated, since that
+        // is when the adapter builds the object sveltekit reads `vite` from
+        bridge.vite = createViteHooks(await import_peer<KitNode>('@sveltejs/kit/node'));
+    }
+
     const { createServer } = await import_peer<typeof import('vite')>('vite');
 
     const upgrades = new WeakMap<Response, WebSocketHandler>();
@@ -87,6 +146,10 @@ export async function startDevServer({
     (globalThis as any)[symUpgrades] = upgrades;
 
     const mockServer = new EventEmitter();
+
+    // on sveltekit 3 the adapter's `vite` hooks replace all of this
+    const plugins: Plugin[] =
+        kit >= 3 ? [] : [satisfies('<1.2.5') ? bunternalPlugin : mockedHttpPlugin];
 
     const vite = await createServer({
         configFile: config,
@@ -101,7 +164,7 @@ export async function startDevServer({
             middlewareMode: true
         },
         appType: 'custom',
-        plugins: [satisfies('<1.2.5') ? bunternalPlugin : mockedHttpPlugin, patchPlatform]
+        plugins
     });
 
     const getResponse = satisfies('<1.2.6') ? legacyReqRes : mockedReqRes;
@@ -112,16 +175,11 @@ export async function startDevServer({
         port,
         idleTimeout,
         async fetch(request: Request, server: Server<WebSocketHandler>) {
-            const id = crypto.randomUUID();
-            
-            request.headers.set(devContextHeader, id);
-            devContext.set(id, {
-                request,
-                server
-            });
-
-            const response = await getResponse(vite, request, server, mockServer);
-            devContext.delete(id);
+            // `Adapter.emulate().platform()` is called by sveltekit without any
+            // reference to the request, so carry it through the async context
+            const response = await bridge.storage.run({ request, server }, () =>
+                getResponse(vite, request, server, mockServer)
+            );
 
             if (!response) return;
 

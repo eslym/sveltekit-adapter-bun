@@ -4,6 +4,7 @@ import type { ServerResponse } from 'http';
 import type { Plugin } from 'vite';
 import { satisfies } from './version';
 import type { WebSocketHandler } from '../types';
+import { body_start } from './mock-http';
 
 export const bunternal = Symbol.for('::bunternal::');
 
@@ -44,11 +45,13 @@ export function patchBunternal(src: string) {
 		return;
 	}
 `;
-    const getReq = src.indexOf('export async function getRequest');
-    const getReqStart = src.indexOf('\n', getReq);
-
-    const setRes = src.indexOf('export async function setResponse');
-    const setResStart = src.indexOf('\n', setRes);
+    // `indexOf` returns -1 when the signature does not match, and
+    // `indexOf('\n', -1)` then clamps to 0 instead of failing, which would
+    // splice both patches in at the top of the module and surface as a
+    // `SyntaxError` blamed on @sveltejs/kit. `body_start` throws a named
+    // adapter error instead, and matches the sync signatures too.
+    const getReqStart = body_start(src, 'getRequest');
+    const setResStart = body_start(src, 'setResponse');
 
     return src
         .slice(0, getReqStart)

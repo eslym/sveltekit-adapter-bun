@@ -1,25 +1,42 @@
-import type { WebSocketHandler } from '../types';
-import type { Plugin } from 'vite';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import type { AdapterViteConfig, WebSocketHandler } from '../types';
+import { symDevBridge } from '../symbols';
 
-export const devContextHeader = 'X-Adapter-Dev-Context' as const;
+export interface DevContext {
+    request: Request;
+    server: Bun.Server<WebSocketHandler>;
+}
 
-export const devContext = new Map<
-    string,
-    {
-        request: Request;
-        server: Bun.Server<WebSocketHandler>;
-    }
->();
+export interface DevBridge {
+    /**
+     * Carries the bun `Request` and `Server` of the request currently being
+     * handled from the dev server into `Adapter.emulate().platform()`, which
+     * sveltekit calls without any reference to the request.
+     */
+    storage: AsyncLocalStorage<DevContext>;
 
-export const patchPlatform = {
-    name: 'sveltekit-adapter-bun/patch-platform',
-    transform(code, id, options) {
-        if (!options?.ssr) return;
-        if (!id.endsWith('/@sveltejs/kit/src/runtime/server/respond.js')) return;
+    /**
+     * Populated by the dev server on sveltekit 3+, where the adapter can hand
+     * bun's own `Request`/`Response` to sveltekit instead of patching
+     * `@sveltejs/kit/node` at load time.
+     */
+    vite?: AdapterViteConfig;
+}
 
-        return code.replaceAll(
-            'state.emulator.platform({',
-            'state.emulator.platform({ request: event.request, '
-        );
-    }
-} satisfies Plugin;
+/**
+ * Get the shared bridge, creating it if this is the first access.
+ */
+export function devBridge(): DevBridge {
+    const global = globalThis as any;
+    return (global[symDevBridge] ??= {
+        storage: new AsyncLocalStorage<DevContext>()
+    } satisfies DevBridge);
+}
+
+/**
+ * The context of the request being handled, or `undefined` outside of the dev
+ * server (during build and prerender, or when running under `vite dev`).
+ */
+export function devContext(): DevContext | undefined {
+    return ((globalThis as any)[symDevBridge] as DevBridge | undefined)?.storage.getStore();
+}

@@ -4,8 +4,8 @@ import { Duplex, PassThrough, Readable } from 'stream';
 import type { Plugin } from 'vite';
 import type { WebSocketHandler } from '../types';
 
-const kReq = Symbol.for('::adapter-bun::request::');
-const kRes = Symbol.for('::adapter-bun::response::');
+export const kReq = Symbol.for('::adapter-bun::request::');
+export const kRes = Symbol.for('::adapter-bun::response::');
 
 function defineGetter<T, K extends keyof T>(object: T, property: K, getter: () => T[K]) {
     Object.defineProperty(object, property, { get: getter });
@@ -99,10 +99,39 @@ export function mockNodeRequest(
     };
 
     (writable as any).getHeader = (name: string) => {
-        return headers.get(name);
+        return headers.get(name) ?? undefined;
     };
 
-    (writable as any).writeHead = (statusCode: number) => {
+    (writable as any).getHeaders = () => Object.fromEntries(headers.entries());
+
+    (writable as any).getHeaderNames = () => [...headers.keys()];
+
+    (writable as any).hasHeader = (name: string) => headers.has(name);
+
+    (writable as any).removeHeader = (name: string) => {
+        headers.delete(name);
+    };
+
+    Object.defineProperty(writable, 'headersSent', { get: () => headerSent });
+
+    (writable as any).req = req;
+
+    // node's signature is `writeHead(status, statusMessage?, headers?)`, and
+    // sveltekit's dev middleware uses the headers form for the service worker
+    // and the error page. Dropping the argument served both without their
+    // content-type.
+    (writable as any).writeHead = (
+        statusCode: number,
+        statusMessage?: string | OutgoingHttpHeaders,
+        headersArg?: OutgoingHttpHeaders
+    ) => {
+        const extra = typeof statusMessage === 'string' ? headersArg : statusMessage;
+        if (extra) {
+            for (const [name, value] of Object.entries(extra)) {
+                if (value === undefined) continue;
+                (writable as any).setHeader(name, value as string | number | string[]);
+            }
+        }
         const body = Readable.toWeb(writable);
         const response = new Response(body as any, {
             status: statusCode,
@@ -110,6 +139,7 @@ export function mockNodeRequest(
         });
         headerSent = true;
         resolve(response);
+        return writable;
     };
 
     (writable as any)[kRes] = resolve;
@@ -135,6 +165,7 @@ export function mockNodeRequest(
             writable.end = old_end;
         }
         (old_end as any)(...args);
+        return writable;
     };
 
     return {
@@ -143,6 +174,21 @@ export function mockNodeRequest(
         promise,
         reject
     };
+}
+
+/**
+ * Find the end of the signature line of an exported function, so a statement
+ * can be injected at the top of its body. `getRequest` and `setResponse` are
+ * `async` on sveltekit 2 and synchronous on sveltekit 3, so match both.
+ */
+export function body_start(src: string, name: string) {
+    const match = new RegExp(`export\\s+(?:async\\s+)?function\\s+${name}\\b`).exec(src);
+    if (!match) {
+        throw new Error(
+            `[adapter-bun] could not find \`${name}\` in @sveltejs/kit/node, this version of sveltekit is not supported by the dev server.`
+        );
+    }
+    return src.indexOf('\n', match.index);
 }
 
 export function patchMockHttp(src: string) {
@@ -158,11 +204,8 @@ export function patchMockHttp(src: string) {
         return;
     }
 `;
-    const getReq = src.indexOf('export async function getRequest');
-    const getReqStart = src.indexOf('\n', getReq);
-
-    const setRes = src.indexOf('export async function setResponse');
-    const setResStart = src.indexOf('\n', setRes);
+    const getReqStart = body_start(src, 'getRequest');
+    const setResStart = body_start(src, 'setResponse');
 
     return src
         .slice(0, getReqStart)

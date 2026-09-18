@@ -15,6 +15,45 @@ bun add -d @eslym/sveltekit-adapter-bun
 >
 > Since version `2.0.0`, the custom hooks (`beforeServe`, `afterServe` and `setupCLI`) and CLI functionality is complemetely removed.
 
+## Compatibility
+
+This adapter supports both SvelteKit 2 and SvelteKit 3 from a single package; it detects which one you are on at build time and uses the matching adapter API.
+
+|                                | SvelteKit 2                                 | SvelteKit 3                                                      |
+| ------------------------------ | ------------------------------------------- | ---------------------------------------------------------------- |
+| Configuration                  | `svelte.config.js`                          | `vite.config.ts` (`svelte.config.js` is rejected by SvelteKit 3) |
+| Dev server WebSockets          | needs `patchSveltekit()`                    | works out of the box, `patchSveltekit()` is a no-op              |
+| Server instrumentation         | needs `experimental.instrumentation.server` | works out of the box, plus a `$app/env/private` initializer      |
+| Minimum bun for the dev server | `>= 1.1.8`                                  | `>= 1.2.6`                                                       |
+
+### SvelteKit 3 setup
+
+SvelteKit 3 no longer reads `svelte.config.js`, so the adapter is passed to the `sveltekit` vite plugin instead:
+
+```typescript
+// vite.config.ts
+import { sveltekit } from '@sveltejs/kit/vite';
+import adapter from '@eslym/sveltekit-adapter-bun';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+    plugins: [sveltekit({ adapter: adapter() })]
+});
+```
+
+### SvelteKit 2 setup
+
+```javascript
+// svelte.config.js
+import adapter from '@eslym/sveltekit-adapter-bun';
+
+export default {
+    kit: {
+        adapter: adapter()
+    }
+};
+```
+
 ## Setup dev server
 
 > [!NOTE]  
@@ -24,21 +63,23 @@ bun add -d @eslym/sveltekit-adapter-bun
 2. Add the following code to the entrypoint file
 
     ```typescript
-    import { patchSvelteKit, startDevServer } from '@eslym/sveltekit-adapter-bun';
+    import { patchSveltekit, startDevServer } from '@eslym/sveltekit-adapter-bun/dev';
 
-    await patchSvelteKit();
+    await patchSveltekit();
     await startDevServer();
     ```
 
 3. run `bun dev.ts`
 
-The `patchSvelteKit` function will patch the sveltekit using `bun patch` to let it get the original `Request` object from bun and pass it to the dev server, making `Bun.Server#upgrade` possible. The `startDevServer` function will start the dev server with websocket support.
+The `startDevServer` function starts the dev server with websocket support.
 
-The `patchSvelteKit` will not impact anything in production build, since the production build will not involve `@sveltejs/kit/node` unless you are using it in your code.
+On **SvelteKit 2**, `patchSveltekit` patches sveltekit using `bun patch` so that it can get the original `Request` object from bun and pass it to the dev server, making `Bun.Server#upgrade` possible. It does not impact anything in the production build, since the production build does not involve `@sveltejs/kit/node` unless you are using it in your code.
+
+On **SvelteKit 3**, `patchSveltekit` is a no-op that returns immediately: SvelteKit 3 exposes the supported `Adapter.vite` hooks (`getRequest` / `setResponse`), which the adapter uses instead, so nothing has to be patched. You can keep the call in your entrypoint — it is safe on both versions.
 
 > [!IMPORTANT]
-> This dev server uses bun's internal stuff, so it might break in the future bun version, but the
-> production build will not be affected.
+> On SvelteKit 2 this dev server uses bun's internal stuff, so it might break in a future bun
+> version, but the production build will not be affected.
 
 ## Use the websocket
 
@@ -84,6 +125,76 @@ export async function GET({ platform }) {
     });
 }
 ```
+
+## Instrumentation
+
+SvelteKit can run an `src/instrumentation.server.ts` module _before_ anything else in the server bundle, which is what OpenTelemetry and similar tools need in order to patch modules as they load. This adapter implements the `instrumentation` capability on both majors.
+
+On **SvelteKit 3** it works with no extra configuration. On **SvelteKit 2** it additionally requires the experimental flag — without it SvelteKit does not instrument the build at all:
+
+```javascript
+// svelte.config.js (SvelteKit 2 only)
+export default {
+    kit: {
+        adapter: adapter(),
+        experimental: {
+            instrumentation: { server: true }
+        }
+    }
+};
+```
+
+```typescript
+// src/instrumentation.server.ts
+import { NodeSDK } from '@opentelemetry/sdk-node';
+
+const sdk = new NodeSDK({
+    // ...
+});
+
+sdk.start();
+```
+
+The adapter emits `build/index.js` as a small facade that loads your instrumentation module first, and only then imports the actual server:
+
+<!-- prettier-ignore -->
+```javascript
+#!/usr/bin/env bun
+// @bun
+import "./server/environment.js";
+import "./server/instrumentation.server.js";
+await import("./start.js");
+```
+
+The `environment.js` line is SvelteKit 3 only — it is the initializer that populates `$app/env/private` before your instrumentation runs. On SvelteKit 2 there is no such module and the facade is one line shorter.
+
+Your instrumentation module is bundled together with the SvelteKit runtime, so the two share a single instance of `@opentelemetry/api` and the spans SvelteKit emits reach the provider you register.
+
+> [!IMPORTANT]
+> With the default `bundler: 'rollup'`, Vite's SSR build leaves bare imports of packages that live
+> in `node_modules` external, so `@opentelemetry/api` — and any other OpenTelemetry package your
+> instrumentation imports — has to be a real `dependency`, not a `devDependency`. The adapter strips
+> `devDependencies` from the emitted `build/package.json`, so a dev-only OpenTelemetry would not be
+> installed on the deployment target and the server would fail to start. With `bundler: 'bun'` only
+> the app's `dependencies` are externalised and everything else is bundled into the output, so there
+> a dev-only OpenTelemetry works too.
+
+Note that OpenTelemetry's automatic instrumentations patch modules as they are loaded, so they cannot see code that ended up inside the bundle. Packages you want auto-instrumented have to stay external, which again means listing them in `dependencies`.
+
+> [!IMPORTANT]
+> To read environment variables from your instrumentation module, declare them in `src/env.ts` and
+> import from `$app/env/private`. SvelteKit 3 only populates `$env/dynamic/private` for variables
+> that are explicitly declared, so an undeclared variable reads as `undefined` there — this is
+> SvelteKit behaviour, not an adapter limitation.
+>
+> ```typescript
+> // src/env.ts
+> import { defineEnvVars } from '@sveltejs/kit/env';
+>
+> export const variables = defineEnvVars({
+>     OTEL_EXPORTER_OTLP_ENDPOINT: { schema: (value) => value }
+> });
+> ```
 
 ## Adapter Options
 
@@ -166,7 +277,7 @@ export type AdapterOptions = {
 
     /**
      * Call the launch function exported from `hooks.server.js` instead of serve the application directly.
-     * @requires @sveltejs/kit >= 2.50.1
+     * @requires @sveltejs/kit >= 2.50.1 (any 3.x)
      * @default false
      */
     customLaunch?: boolean;
@@ -239,5 +350,5 @@ export function launch({ serve }: LaunchParam) {
 
 > [!IMPORTANT]
 >
-> 1. This feature requires `@sveltejs/kit >= 2.50.1` which allows adapter to import `hooks.server.js` directly.
+> 1. This feature requires `@sveltejs/kit >= 2.50.1` (or any SvelteKit 3), which allows the adapter to import `hooks.server.js` directly.
 > 2. `init` in `hooks.server.js` will still run before the `launch` function because SvelteKit runs it when initializing environment variables.

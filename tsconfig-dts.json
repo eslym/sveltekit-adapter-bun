@@ -1,9 +1,11 @@
 {
   "extends": ["./tsconfig.json"],
-  "buildOptions": {
+  "compilerOptions": {
+    // typescript 6 requires an explicit rootDir when emitting outside of it
+    "rootDir": "./src",
     "outDir": "./dist",
     "declaration": true,
     "emitDeclarationOnly": true
   },
-  "files": ["src/index.ts", "src/dev.ts"],
+  "files": ["src/index.ts", "src/dev.ts"]
 }

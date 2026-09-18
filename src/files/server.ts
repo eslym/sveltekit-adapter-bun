@@ -1,11 +1,8 @@
-import { Server } from 'SERVER';
-import { manifest } from 'MANIFEST';
+import { server } from 'SERVER';
 import { join } from 'node:path';
 import { assets } from 'ASSETS';
 
-const server = new Server(manifest);
-
-let server_promise: Promise<Server> | null = null;
+let server_promise: Promise<typeof server> | null = null;
 let initialized = false;
 
 export async function init_server(clientDir: string) {

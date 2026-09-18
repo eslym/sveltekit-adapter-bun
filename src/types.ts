@@ -5,6 +5,7 @@ import type {
 } from 'bun';
 import type { Server } from 'bun';
 import type { BlockList } from 'node:net';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 
 export type CreateFetchOptions = {
     overrideOrigin?: string;
@@ -14,6 +15,28 @@ export type CreateFetchOptions = {
     xffDepth?: number;
     trustedProxies?: BlockList;
 };
+
+/**
+ * The subset of sveltekit 3's `AdapterViteConfig` this adapter uses, declared
+ * locally so the package does not depend on a type sveltekit 2 lacks. The hooks
+ * are only ever installed on sveltekit 3, where `getRequest` is synchronous.
+ */
+export interface AdapterViteConfig {
+    /**
+     * Replaces sveltekit's own `getRequest` in vite's dev and preview modes.
+     */
+    getRequest?(opts: {
+        request: IncomingMessage;
+        response?: ServerResponse;
+        base: string;
+        bodySizeLimit?: number;
+    }): Request;
+
+    /**
+     * Replaces sveltekit's own `setResponse` in vite's dev and preview modes.
+     */
+    setResponse?(res: ServerResponse, response: Response): void;
+}
 
 export type ServeOptions = {
     port: number;

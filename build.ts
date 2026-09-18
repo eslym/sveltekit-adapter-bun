@@ -26,7 +26,7 @@ for (const output of buildIndex.outputs) {
 const buildFiles = await Bun.build({
     entrypoints: [join(import.meta.dir, 'src/files/index.ts')],
     outdir: join(import.meta.dir, 'dist/files'),
-    external: ['SERVER', 'MANIFEST', 'ASSETS', path.resolve(join(import.meta.dir, 'src/entries/hooks.server.js'))],
+    external: ['SERVER', 'ASSETS', path.resolve(join(import.meta.dir, 'src/entries/hooks.server.js'))],
     target: 'bun',
     splitting: true,
     naming: {
